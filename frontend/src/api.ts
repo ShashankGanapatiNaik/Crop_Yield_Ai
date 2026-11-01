@@ -60,7 +60,7 @@ export const api = {
   compare: (inputs: Omit<Inputs, 'crop'>, crops?: string[]) => post<{ results: CompareRow[]; best_crop: string }>('/compare-crops', { ...inputs, crops }),
   whatIf: (base: Inputs, changes: Record<string, number | string>, sweep?: { param: string; min: number; max: number; steps: number }) =>
     post<WhatIf>('/what-if', { base, changes, sweep }),
-  weather: (lat: number, lon: number) => req<Weather>(`/weather?lat=${lat}&lon=${lon}`),
+  weather: (lat: number, lon: number, season?: string) => req<Weather>(`/weather?lat=${lat}&lon=${lon}${season ? `&season=${encodeURIComponent(season)}` : ''}`),
   geoReverse: (lat: number, lon: number) => req<Place>(`/geocode/reverse?lat=${lat}&lon=${lon}`),
   geoSearch: (q: string) => req<{ results: Place[] }>(`/geocode/search?q=${encodeURIComponent(q)}`),
   history: () => req<{ total: number; items: HistoryItem[] }>('/history?limit=100'),

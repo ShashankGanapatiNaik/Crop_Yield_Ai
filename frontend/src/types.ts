@@ -28,7 +28,7 @@ export interface WhatIf {
   delta_yield_t_ha: number; delta_pct: number; delta_profit: number
   sweep?: { param: string; points: { x: number; yield_t_ha: number; lower_t_ha: number; upper_t_ha: number }[] }
 }
-export interface Weather { temperature_c: number; humidity_pct: number; rainfall_mm: number; period_days: number; next_7d_rainfall_mm: number; note: string }
+export interface Weather { temperature_c: number; humidity_pct: number; rainfall_mm: number; rainfall_last_90d_mm: number; period_days: number; next_7d_rainfall_mm: number; season: string | null; basis: string; seasons_used: { year: number; rainfall_mm: number; temperature_c: number | null }[]; note: string }
 export interface CropMeta { name: string; seasons: string[]; optimum_ph: number; optimum_temp_c: number; optimum_water_mm: number; price_per_tonne: number; cost_per_ha: number }
 export interface CropsMeta { crops: CropMeta[]; regions: string[]; seasons: string[]; soil_types: string[]; irrigation: string[] }
 export interface ComparisonRow { model: string; cv_rmse: number; cv_rmse_std: number; test_r2: number; test_mae: number; test_rmse: number; test_mape: number }

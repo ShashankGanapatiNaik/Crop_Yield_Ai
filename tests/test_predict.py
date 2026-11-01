@@ -81,12 +81,12 @@ def test_meta_endpoints(client):
 
 
 def test_weather_endpoint_mocked(client, monkeypatch):
-    monkeypatch.setattr(weather_mod, "fetch_weather", lambda lat, lon: {"temperature_c": 26.1, "humidity_pct": 70, "rainfall_mm": 410.0})
+    monkeypatch.setattr(weather_mod, "fetch_weather", lambda lat, lon, season=None: {"temperature_c": 26.1, "humidity_pct": 70, "rainfall_mm": 410.0})
     r = client.get("/weather", params={"lat": 14.28, "lon": 74.44})
     assert r.status_code == 200 and r.json()["rainfall_mm"] == 410.0
     assert client.get("/weather", params={"lat": 95, "lon": 10}).status_code == 422
 
-    def boom(lat, lon):
+    def boom(lat, lon, season=None):
         raise weather_mod.WeatherError("down")
     monkeypatch.setattr(weather_mod, "fetch_weather", boom)
     assert client.get("/weather", params={"lat": 10, "lon": 10}).status_code == 502
@@ -127,3 +127,33 @@ def test_geocode_endpoints_mocked(client, monkeypatch):
         raise g.GeocodeError("down")
     monkeypatch.setattr(g, "reverse", boom)
     assert client.get("/geocode/reverse", params={"lat": 1, "lon": 1}).status_code == 502
+
+
+def test_weather_season_param_validated_and_passed(client, monkeypatch):
+    seen = {}
+    monkeypatch.setattr(weather_mod, "fetch_weather", lambda lat, lon, season=None: seen.setdefault("s", season) and {"rainfall_mm": 1.0})
+    assert client.get("/weather", params={"lat": 14.28, "lon": 74.44, "season": "kharif"}).status_code == 200
+    assert seen["s"] == "Kharif"
+    assert client.get("/weather", params={"lat": 14.28, "lon": 74.44, "season": "Monsoon"}).status_code == 422
+
+
+def test_season_windows_pick_last_complete_seasons():
+    from datetime import date
+    w = weather_mod.season_windows("Kharif", date(2026, 11, 10))
+    assert [x[0].year for x in w] == [2026, 2025, 2024]            # Kharif 2026 ended Oct 31 and the 7-day archive lag has passed
+    w = weather_mod.season_windows("Kharif", date(2026, 11, 1))
+    assert [x[0].year for x in w] == [2025, 2024, 2023]            # too soon after season end: archive data not yet complete
+    w = weather_mod.season_windows("Kharif", date(2026, 8, 1))
+    assert [x[0].year for x in w] == [2025, 2024, 2023]            # current Kharif not finished yet
+    r = weather_mod.season_windows("Rabi", date(2026, 11, 1))
+    assert [x[0].year for x in r] == [2025, 2024, 2023] and r[0][1] == date(2026, 2, 28)
+    assert weather_mod.season_windows("Winter", date(2026, 11, 1)) == []
+
+
+def test_aggregate_seasons_sums_rain_and_skips_gappy_windows():
+    from datetime import date, timedelta
+    s, e = date(2025, 6, 1), date(2025, 10, 31)
+    days = [(s + timedelta(d)).isoformat() for d in range((e - s).days + 1)]
+    out = weather_mod.aggregate_seasons(days, [10.0] * len(days), [26.0] * len(days), [(s, e)])
+    assert out == [{"year": 2025, "rainfall_mm": 1530.0, "temperature_c": 26.0}]   # 153 days x 10 mm
+    assert weather_mod.aggregate_seasons(days[:60], [10.0] * 60, [26.0] * 60, [(s, e)]) == []

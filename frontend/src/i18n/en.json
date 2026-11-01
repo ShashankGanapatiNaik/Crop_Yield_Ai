@@ -119,7 +119,9 @@
     "locate_me": "Find my location",
     "locate_fail": "Could not get your location. Search a place or tap the map.",
     "filled_region": "State set to {{region}}.",
-    "map_attr": "Map data © OpenStreetMap contributors"
+    "map_attr": "Map data © OpenStreetMap contributors",
+    "rain_hint": "Total rain for the WHOLE season, not just recent days. Coastal and Ghats areas can exceed 3000 mm.",
+    "weather_filled": "Filled from weather data: {{basis}} ({{mm}} mm). If you know your local rain-gauge or IMD value, enter that instead."
   },
   "predict": {
     "title": "Predict yield",

@@ -26,11 +26,11 @@ export default function ConditionsForm({ form, setForm, errors, meta, hideCrop }
   const applyLocation = async (lat: number, lon: number, p: Place | null) => {
     setPicker(null); setLocating(true)
     try {
-      const w = await api.weather(lat, lon)
+      const w = await api.weather(lat, lon, form.season)
       const region = p?.region && meta.regions.includes(p.region) ? p.region : null
       setForm({ ...form, temperature_c: String(w.temperature_c), humidity_pct: String(Math.round(w.humidity_pct)), rainfall_mm: String(Math.round(w.rainfall_mm)), ...(region ? { region } : {}) })
       setPlace(p)
-      toast('success', t('form.weather_ok', { days: w.period_days }) + (region ? ` ${t('form.filled_region', { region: t(`opt.${region}`, region) })}` : ''))
+      toast('success', t('form.weather_filled', { basis: w.basis, mm: Math.round(w.rainfall_mm) }) + (region ? ` ${t('form.filled_region', { region: t(`opt.${region}`, region) })}` : ''))
     } catch (e) {
       toast('error', e instanceof ApiError ? e.message : t('form.weather_fail'))
     } finally { setLocating(false) }
@@ -70,7 +70,7 @@ export default function ConditionsForm({ form, setForm, errors, meta, hideCrop }
             {place && <span className="rounded-full bg-brand-soft px-3 py-1 text-sm font-semibold text-brand-strong" title={place.display_name}><Icon name="pin" className="mr-1 inline h-4 w-4" />{place.label}</span>}
           </div>
         </div>
-        <NumField k="rainfall_mm" label={t('form.rainfall_mm')} value={form.rainfall_mm} onChange={set('rainfall_mm')} errors={errors} />
+        <NumField k="rainfall_mm" label={t('form.rainfall_mm')} value={form.rainfall_mm} onChange={set('rainfall_mm')} errors={errors} hint={t('form.rain_hint')} />
         <NumField k="temperature_c" label={t('form.temperature_c')} value={form.temperature_c} onChange={set('temperature_c')} errors={errors} />
         <NumField k="humidity_pct" label={t('form.humidity_pct')} value={form.humidity_pct} onChange={set('humidity_pct')} errors={errors} />
         <SelField label={t('form.irrigation')} value={form.irrigation} options={meta.irrigation} onChange={set('irrigation')} />

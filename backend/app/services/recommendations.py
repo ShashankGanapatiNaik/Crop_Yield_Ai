@@ -12,6 +12,8 @@ from ml.src.config import CROP_PROFILE, IRRIGATION_MM
 LIME_T_PER_PH_UNIT = 2.5      # t/ha of agricultural lime to raise pH by 1 unit (loam; generic guide)
 UREA_N, SSP_P2O5, MOP_K2O = 0.46, 0.16, 0.60
 NUTRIENT_OPT_FACTOR = 1.0
+SMALL_GAIN_T_HA = 0.15   # below this the model sees irrigation as a minor factor
+RICE_WATERLOG_MM = 3500
 
 
 def _nutrient_supply(inputs: dict) -> dict:
@@ -36,16 +38,26 @@ def generate(inputs: dict, crop: str, pred: dict, levers: dict | None = None, al
     # ---- irrigation / water balance
     water, w_opt, w_tol = water_status(inputs, crop)
     deficit = w_opt - water
+    rain = inputs["rainfall_mm"]
+    excess_limit = RICE_WATERLOG_MM if crop == "Rice" else w_opt + 2.2 * w_tol  # paddy is a flooded crop and tolerates heavy rain
+    irr_gain = levers.get("irrigation") if "irrigation" in levers else None
     if deficit > 0.6 * w_tol:
-        sev = "critical" if deficit > 1.5 * w_tol else "warning"
         better = "Drip" if inputs["irrigation"] in ("Rainfed", "Canal") else "Sprinkler"
-        recs.append(dict(category="irrigation", severity=sev, title="Water deficit expected",
-                         detail=f"Effective water supply is ~{water:.0f} mm against ~{w_opt:.0f} mm needed by {crop}. "
-                                f"Add about {deficit:.0f} mm via supplementary irrigation (e.g. {better.lower()} irrigation for best water-use efficiency).",
-                         expected_gain_t_ha=gain("irrigation")))
-    elif water > w_opt + 2.2 * w_tol:
+        basis = (f"Using the rainfall you entered ({rain:.0f} mm for the season) plus irrigation, effective water is ~{water:.0f} mm against ~{w_opt:.0f} mm "
+                 f"typical for {crop}. ")
+        tip = " If your area is already getting good rain, enter the expected TOTAL rainfall for the whole season, not just recent rain."
+        if irr_gain is not None and irr_gain < SMALL_GAIN_T_HA:
+            recs.append(dict(category="irrigation", severity="info", title="Water is below the usual optimum, but the effect looks small",
+                             detail=basis + f"The model expects only about +{max(irr_gain, 0):.2f} t/ha from adding water here, so treat irrigation as optional." + tip,
+                             expected_gain_t_ha=gain("irrigation")))
+        else:
+            sev = "critical" if deficit > 1.5 * w_tol else "warning"
+            recs.append(dict(category="irrigation", severity=sev, title="Water deficit expected",
+                             detail=basis + f"Add about {deficit:.0f} mm via supplementary irrigation (e.g. {better.lower()} irrigation for best water-use efficiency)." + tip,
+                             expected_gain_t_ha=gain("irrigation")))
+    elif water > excess_limit:
         recs.append(dict(category="irrigation", severity="warning", title="Risk of waterlogging",
-                         detail=f"Expected water (~{water:.0f} mm) is far above the {w_opt:.0f} mm optimum. Ensure drainage channels, avoid irrigating, and watch for root diseases.",
+                         detail=f"Expected water (~{water:.0f} mm) is far above what {crop} usually needs (~{w_opt:.0f} mm). Ensure drainage channels, avoid irrigating, and watch for root diseases.",
                          expected_gain_t_ha=None))
     else:
         recs.append(dict(category="irrigation", severity="success", title="Water supply is adequate",

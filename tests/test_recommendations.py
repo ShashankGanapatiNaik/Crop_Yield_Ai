@@ -80,3 +80,21 @@ def test_sorted_by_severity():
 @pytest.mark.parametrize("crop", list(rec.CROP_PROFILE))
 def test_every_crop_produces_recommendations(crop):
     assert rec.generate(BASE, crop, PRED)
+
+
+def test_deficit_downgraded_when_model_sees_small_gain():
+    recs = rec.generate({**BASE, "rainfall_mm": 250, "irrigation": "Rainfed"}, "Rice", PRED, levers={"irrigation": 0.09})
+    w = by_cat(recs, "irrigation")[0]
+    assert w["severity"] == "info" and "small" in w["title"].lower() and "+0.09" in w["detail"]
+    assert "250 mm" in w["detail"] and "whole season" in w["detail"]
+
+
+def test_deficit_stays_serious_when_gain_is_large():
+    w = by_cat(rec.generate({**BASE, "rainfall_mm": 250, "irrigation": "Rainfed"}, "Rice", PRED, levers={"irrigation": 0.9}), "irrigation")[0]
+    assert w["severity"] in ("warning", "critical") and "deficit" in w["title"].lower()
+
+
+def test_heavy_monsoon_rice_is_not_flagged_as_waterlogging():
+    # coastal-style 3000 mm paddy season: fine for rice, but still flagged for a dryland crop
+    assert by_cat(rec.generate({**BASE, "rainfall_mm": 3000}, "Rice", PRED), "irrigation")[0]["severity"] == "success"
+    assert "waterlogging" in by_cat(rec.generate({**BASE, "rainfall_mm": 3000}, "Chickpea", PRED), "irrigation")[0]["title"].lower()

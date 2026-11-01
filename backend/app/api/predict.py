@@ -78,9 +78,14 @@ def what_if(request: Request, body: WhatIfIn, user: User = Depends(get_current_u
 
 @router.get("/weather")
 @limiter.limit("30/minute")
-def get_weather(request: Request, lat: float = Query(ge=-90, le=90), lon: float = Query(ge=-180, le=180)):
+def get_weather(request: Request, lat: float = Query(ge=-90, le=90), lon: float = Query(ge=-180, le=180),
+                season: str | None = Query(default=None, description="Kharif | Rabi | Summer: use the typical whole-season rainfall")):
+    if season is not None:
+        season = next((x for x in SEASONS if x.lower() == season.lower()), None)
+        if season is None:
+            raise HTTPException(422, f"season must be one of {', '.join(SEASONS)}")
     try:
-        return weather.fetch_weather(lat, lon)
+        return weather.fetch_weather(lat, lon, season)
     except weather.WeatherError as e:
         raise HTTPException(502, str(e)) from e
 
