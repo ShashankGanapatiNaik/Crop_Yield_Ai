@@ -21,7 +21,7 @@ from ..core.security import get_current_user
 from ..db import get_db
 from ..models.orm import Prediction, User
 from ..schemas import CompareIn, PredictIn, PredictionOut, WhatIfIn
-from ..services import pdf_report, weather
+from ..services import geocode, pdf_report, weather
 from ..services.model_service import ModelService, get_model_service
 
 log = logging.getLogger("api")
@@ -82,6 +82,26 @@ def get_weather(request: Request, lat: float = Query(ge=-90, le=90), lon: float 
     try:
         return weather.fetch_weather(lat, lon)
     except weather.WeatherError as e:
+        raise HTTPException(502, str(e)) from e
+
+
+@router.get("/geocode/reverse")
+@limiter.limit("60/minute")
+def geocode_reverse(request: Request, lat: float = Query(ge=-90, le=90), lon: float = Query(ge=-180, le=180)):
+    """Exact place name for a map point."""
+    try:
+        return geocode.reverse(lat, lon)
+    except geocode.GeocodeError as e:
+        raise HTTPException(502, str(e)) from e
+
+
+@router.get("/geocode/search")
+@limiter.limit("60/minute")
+def geocode_search(request: Request, q: str = Query(min_length=2, max_length=120)):
+    """Search a place by name (India)."""
+    try:
+        return {"results": geocode.search(q)}
+    except geocode.GeocodeError as e:
         raise HTTPException(502, str(e)) from e
 
 

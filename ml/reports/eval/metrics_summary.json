@@ -1,15 +1,15 @@
 {
   "best_model": "Stacking Ensemble",
-  "r2": 0.9380500710190268,
-  "mae": 0.1698253321706465,
-  "rmse": 0.26506697163574816,
-  "mape": 12.963691316820402,
+  "r2": 0.9376533371390758,
+  "mae": 0.1710206173822991,
+  "rmse": 0.2659143755084168,
+  "mape": 13.004637785881695,
   "uncertainty": {
     "nominal_coverage": 0.8,
-    "qhat_conformal_correction": 0.016316884243284438,
-    "coverage_raw_quantile": 0.7655902004454342,
-    "coverage_calibrated": 0.8140311804008908,
-    "mean_interval_width_t_ha": 0.5450998715351778,
+    "qhat_conformal_correction": 0.020477740229672022,
+    "coverage_raw_quantile": 0.755011135857461,
+    "coverage_calibrated": 0.8246102449888641,
+    "mean_interval_width_t_ha": 0.5587686633048153,
     "method": "quantile regression on relative error + CQR"
   }
 }

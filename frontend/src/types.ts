@@ -48,3 +48,5 @@ export interface AdminStats {
   endpoints: { path: string; count: number; avg_latency_ms: number }[]
 }
 export interface AdminUser { id: number; name: string; email: string; role: string; created_at: string; predictions: number }
+
+export interface Place { lat: number; lon: number; label: string; display_name: string; locality: string; district: string; state: string; country: string; region: string | null }

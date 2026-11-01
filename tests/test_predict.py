@@ -99,3 +99,31 @@ def test_weather_summarise_parses_open_meteo():
     out = weather_mod.summarise(data, 14.0, 74.0)
     assert out["period_days"] == 90 and out["rainfall_mm"] == 180.0 and out["next_7d_rainfall_mm"] == 14.0
     assert out["temperature_c"] == 25.0 and out["current_temperature_c"] == 30
+
+
+def test_geocode_parse_place_builds_exact_label():
+    from backend.app.services.geocode import parse_place
+    item = {"lat": "14.2798", "lon": "74.4439", "display_name": "Honnavar, Uttara Kannada, Karnataka, India",
+            "address": {"town": "Honnavar", "state_district": "Uttara Kannada", "state": "Karnataka", "country": "India"}}
+    p = parse_place(item)
+    assert p["label"] == "Honnavar, Uttara Kannada, Karnataka" and p["region"] == "Karnataka" and p["lat"] == 14.2798
+    # unknown state -> no region match, label still built; duplicate parts collapse
+    q = parse_place({"lat": "1", "lon": "2", "address": {"city": "Delhi", "state": "Delhi"}})
+    assert q["label"] == "Delhi" and q["region"] is None
+
+
+def test_geocode_endpoints_mocked(client, monkeypatch):
+    import backend.app.services.geocode as g
+    place = {"lat": 14.28, "lon": 74.44, "label": "Honnavar, Uttara Kannada, Karnataka", "display_name": "x", "locality": "Honnavar",
+             "district": "Uttara Kannada", "state": "Karnataka", "country": "India", "region": "Karnataka"}
+    monkeypatch.setattr(g, "reverse", lambda lat, lon: place)
+    monkeypatch.setattr(g, "search", lambda q: [place])
+    assert client.get("/geocode/reverse", params={"lat": 14.28, "lon": 74.44}).json()["label"].startswith("Honnavar")
+    assert client.get("/geocode/search", params={"q": "honnavar"}).json()["results"][0]["region"] == "Karnataka"
+    assert client.get("/geocode/search", params={"q": "h"}).status_code == 422
+    assert client.get("/geocode/reverse", params={"lat": 200, "lon": 0}).status_code == 422
+
+    def boom(*a):
+        raise g.GeocodeError("down")
+    monkeypatch.setattr(g, "reverse", boom)
+    assert client.get("/geocode/reverse", params={"lat": 1, "lon": 1}).status_code == 502

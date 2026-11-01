@@ -1,4 +1,4 @@
-import type { AdminStats, AdminUser, CompareRow, CropsMeta, HistoryItem, Inputs, ModelInfo, Prediction, TokenOut, User, Weather, WhatIf } from './types'
+import type { AdminStats, AdminUser, CompareRow, CropsMeta, HistoryItem, Inputs, ModelInfo, Place, Prediction, TokenOut, User, Weather, WhatIf } from './types'
 
 export const API_BASE: string = import.meta.env.VITE_API_URL ?? '/api'
 const KEY = 'cropai_token'
@@ -61,6 +61,8 @@ export const api = {
   whatIf: (base: Inputs, changes: Record<string, number | string>, sweep?: { param: string; min: number; max: number; steps: number }) =>
     post<WhatIf>('/what-if', { base, changes, sweep }),
   weather: (lat: number, lon: number) => req<Weather>(`/weather?lat=${lat}&lon=${lon}`),
+  geoReverse: (lat: number, lon: number) => req<Place>(`/geocode/reverse?lat=${lat}&lon=${lon}`),
+  geoSearch: (q: string) => req<{ results: Place[] }>(`/geocode/search?q=${encodeURIComponent(q)}`),
   history: () => req<{ total: number; items: HistoryItem[] }>('/history?limit=100'),
   historyItem: (id: number) => req<Prediction>(`/history/${id}`),
   deleteHistory: (id: number) => req<void>(`/history/${id}`, { method: 'DELETE' }),

@@ -3,7 +3,8 @@ import { useTranslation } from 'react-i18next'
 import { api, ApiError } from '../api'
 import { useToast } from '../toast'
 import type { Errors } from '../ranges'
-import type { CropsMeta, FormState } from '../types'
+import type { CropsMeta, FormState, Place } from '../types'
+import LocationPicker from './LocationPicker'
 import { Icon, NumField, SelField, Spinner } from './ui'
 
 interface Props { form: FormState; setForm: (f: FormState) => void; errors: Errors; meta: CropsMeta; hideCrop?: boolean }
@@ -12,6 +13,8 @@ export default function ConditionsForm({ form, setForm, errors, meta, hideCrop }
   const { t } = useTranslation()
   const toast = useToast()
   const [locating, setLocating] = useState(false)
+  const [picker, setPicker] = useState<null | { auto: boolean }>(null)
+  const [place, setPlace] = useState<Place | null>(null)
   const set = (k: keyof FormState) => (v: string) => setForm({ ...form, [k]: v })
   const allowed = meta.crops.find((c) => c.name === form.crop)?.seasons ?? meta.seasons
 
@@ -20,22 +23,17 @@ export default function ConditionsForm({ form, setForm, errors, meta, hideCrop }
     setForm({ ...form, crop, season: seasons.includes(form.season) ? form.season : seasons[0] })
   }
 
-  const fillWeather = () => {
-    if (!navigator.geolocation) return toast('error', t('form.loc_denied'))
-    setLocating(true)
-    navigator.geolocation.getCurrentPosition(
-      async (pos) => {
-        try {
-          const w = await api.weather(pos.coords.latitude, pos.coords.longitude)
-          setForm({ ...form, temperature_c: String(w.temperature_c), humidity_pct: String(Math.round(w.humidity_pct)), rainfall_mm: String(Math.round(w.rainfall_mm)) })
-          toast('success', t('form.weather_ok', { days: w.period_days }))
-        } catch (e) {
-          toast('error', e instanceof ApiError ? e.message : t('form.weather_fail'))
-        } finally { setLocating(false) }
-      },
-      () => { setLocating(false); toast('error', t('form.loc_denied')) },
-      { timeout: 10000 },
-    )
+  const applyLocation = async (lat: number, lon: number, p: Place | null) => {
+    setPicker(null); setLocating(true)
+    try {
+      const w = await api.weather(lat, lon)
+      const region = p?.region && meta.regions.includes(p.region) ? p.region : null
+      setForm({ ...form, temperature_c: String(w.temperature_c), humidity_pct: String(Math.round(w.humidity_pct)), rainfall_mm: String(Math.round(w.rainfall_mm)), ...(region ? { region } : {}) })
+      setPlace(p)
+      toast('success', t('form.weather_ok', { days: w.period_days }) + (region ? ` ${t('form.filled_region', { region: t(`opt.${region}`, region) })}` : ''))
+    } catch (e) {
+      toast('error', e instanceof ApiError ? e.message : t('form.weather_fail'))
+    } finally { setLocating(false) }
   }
 
   const Section = ({ title, children }: { title: string; children: React.ReactNode }) => (
@@ -64,9 +62,13 @@ export default function ConditionsForm({ form, setForm, errors, meta, hideCrop }
       </Section>
       <Section title={t('form.s_water')}>
         <div className="sm:col-span-2 lg:col-span-3">
-          <button type="button" className="btn btn-outline mb-3" onClick={fillWeather} disabled={locating}>
-            {locating ? <Spinner /> : <Icon name="pin" />} {locating ? t('form.locating') : t('form.use_location')}
-          </button>
+          <div className="mb-3 flex flex-wrap items-center gap-2">
+            <button type="button" className="btn btn-outline" onClick={() => setPicker({ auto: true })} disabled={locating}>
+              {locating ? <Spinner /> : <Icon name="pin" />} {locating ? t('form.locating') : t('form.use_location')}
+            </button>
+            <button type="button" className="btn btn-ghost" onClick={() => setPicker({ auto: false })} disabled={locating}>{t('form.choose_map')}</button>
+            {place && <span className="rounded-full bg-brand-soft px-3 py-1 text-sm font-semibold text-brand-strong" title={place.display_name}><Icon name="pin" className="mr-1 inline h-4 w-4" />{place.label}</span>}
+          </div>
         </div>
         <NumField k="rainfall_mm" label={t('form.rainfall_mm')} value={form.rainfall_mm} onChange={set('rainfall_mm')} errors={errors} />
         <NumField k="temperature_c" label={t('form.temperature_c')} value={form.temperature_c} onChange={set('temperature_c')} errors={errors} />
@@ -74,6 +76,7 @@ export default function ConditionsForm({ form, setForm, errors, meta, hideCrop }
         <SelField label={t('form.irrigation')} value={form.irrigation} options={meta.irrigation} onChange={set('irrigation')} />
         <NumField k="fertilizer_kg_ha" label={t('form.fertilizer_kg_ha')} value={form.fertilizer_kg_ha} onChange={set('fertilizer_kg_ha')} errors={errors} />
       </Section>
+      {picker && <LocationPicker initial={place ? { lat: place.lat, lon: place.lon } : null} autoLocate={picker.auto} onClose={() => setPicker(null)} onConfirm={applyLocation} />}
     </div>
   )
 }
