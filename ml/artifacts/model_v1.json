@@ -1,0 +1,834 @@
+{
+  "version": 1,
+  "trained_at": "2026-10-31T07:30:31.468793+00:00",
+  "data_source": "synthetic dataset (agronomic response simulator)",
+  "cleaning": {
+    "rows_in": 9000,
+    "rows_out": 8979,
+    "outliers_removed": 21
+  },
+  "best_model": "Stacking Ensemble",
+  "selection_criterion": "lowest 5-fold CV RMSE on training split",
+  "explainer_model": "CatBoost",
+  "n_train": 7183,
+  "n_test": 1796,
+  "cv_folds": 5,
+  "optuna_trials": 6,
+  "metrics_test": {
+    "r2": 0.9380500710190268,
+    "mae": 0.1698253321706465,
+    "rmse": 0.26506697163574816,
+    "mape": 12.963691316820402
+  },
+  "metrics_cv": {
+    "r2": 0.9357332470370807,
+    "r2_std": 0.015479923117028453,
+    "mae": 0.1667385655853384,
+    "mae_std": 0.0073797790223248385,
+    "rmse": 0.26607414711010186,
+    "rmse_std": 0.03312308983991242,
+    "mape": 11.807911623354403,
+    "mape_std": 1.1281881361061006
+  },
+  "comparison": [
+    {
+      "model": "Linear Regression",
+      "cv_r2": 0.71655,
+      "cv_r2_std": 0.00665,
+      "cv_mae": 0.40954,
+      "cv_mae_std": 0.01203,
+      "cv_rmse": 0.56179,
+      "cv_rmse_std": 0.01665,
+      "cv_mape": 28.70913,
+      "cv_mape_std": 1.12425,
+      "test_r2": 0.73165,
+      "test_mae": 0.40286,
+      "test_rmse": 0.55168,
+      "test_mape": 29.03695
+    },
+    {
+      "model": "Ridge",
+      "cv_r2": 0.71652,
+      "cv_r2_std": 0.00666,
+      "cv_mae": 0.40951,
+      "cv_mae_std": 0.01213,
+      "cv_rmse": 0.56182,
+      "cv_rmse_std": 0.01667,
+      "cv_mape": 28.70589,
+      "cv_mape_std": 1.12444,
+      "test_r2": 0.7317,
+      "test_mae": 0.40276,
+      "test_rmse": 0.55163,
+      "test_mape": 29.0358
+    },
+    {
+      "model": "Random Forest",
+      "cv_r2": 0.8942,
+      "cv_r2_std": 0.01761,
+      "cv_mae": 0.23408,
+      "cv_mae_std": 0.00891,
+      "cv_rmse": 0.34237,
+      "cv_rmse_std": 0.03148,
+      "cv_mape": 16.45844,
+      "cv_mape_std": 1.18085,
+      "test_r2": 0.90041,
+      "test_mae": 0.23449,
+      "test_rmse": 0.33607,
+      "test_mape": 17.47195
+    },
+    {
+      "model": "Gradient Boosting",
+      "cv_r2": 0.91585,
+      "cv_r2_std": 0.0152,
+      "cv_mae": 0.20023,
+      "cv_mae_std": 0.00609,
+      "cv_rmse": 0.30518,
+      "cv_rmse_std": 0.02964,
+      "cv_mape": 14.34578,
+      "cv_mape_std": 1.07678,
+      "test_r2": 0.92067,
+      "test_mae": 0.20232,
+      "test_rmse": 0.29995,
+      "test_mape": 15.49944
+    },
+    {
+      "model": "XGBoost",
+      "cv_r2": 0.92593,
+      "cv_r2_std": 0.01434,
+      "cv_mae": 0.1837,
+      "cv_mae_std": 0.00558,
+      "cv_rmse": 0.28624,
+      "cv_rmse_std": 0.02999,
+      "cv_mape": 13.05712,
+      "cv_mape_std": 1.08944,
+      "test_r2": 0.93163,
+      "test_mae": 0.18667,
+      "test_rmse": 0.27846,
+      "test_mape": 14.2019
+    },
+    {
+      "model": "LightGBM",
+      "cv_r2": 0.92925,
+      "cv_r2_std": 0.01535,
+      "cv_mae": 0.17818,
+      "cv_mae_std": 0.00628,
+      "cv_rmse": 0.27942,
+      "cv_rmse_std": 0.03156,
+      "cv_mape": 12.68415,
+      "cv_mape_std": 1.10566,
+      "test_r2": 0.93385,
+      "test_mae": 0.18007,
+      "test_rmse": 0.27389,
+      "test_mape": 13.78975
+    },
+    {
+      "model": "CatBoost",
+      "cv_r2": 0.93412,
+      "cv_r2_std": 0.01495,
+      "cv_mae": 0.17083,
+      "cv_mae_std": 0.00726,
+      "cv_rmse": 0.26957,
+      "cv_rmse_std": 0.03202,
+      "cv_mape": 12.213,
+      "cv_mape_std": 1.18106,
+      "test_r2": 0.935,
+      "test_mae": 0.17489,
+      "test_rmse": 0.27151,
+      "test_mape": 13.43024
+    },
+    {
+      "model": "Stacking Ensemble",
+      "cv_r2": 0.93573,
+      "cv_r2_std": 0.01548,
+      "cv_mae": 0.16674,
+      "cv_mae_std": 0.00738,
+      "cv_rmse": 0.26607,
+      "cv_rmse_std": 0.03312,
+      "cv_mape": 11.80791,
+      "cv_mape_std": 1.12819,
+      "test_r2": 0.93805,
+      "test_mae": 0.16983,
+      "test_rmse": 0.26507,
+      "test_mape": 12.96369
+    }
+  ],
+  "best_params": {
+    "Linear Regression": {},
+    "Ridge": {
+      "alpha": 0.0745934328572655
+    },
+    "Random Forest": {
+      "n_estimators": 152,
+      "max_depth": 13,
+      "min_samples_leaf": 2,
+      "max_features": 0.8849549260809972
+    },
+    "Gradient Boosting": {
+      "n_estimators": 145,
+      "learning_rate": 0.11634802340974812,
+      "max_depth": 4,
+      "subsample": 0.6873687420594126
+    },
+    "XGBoost": {
+      "n_estimators": 633,
+      "learning_rate": 0.0798261175712336,
+      "max_depth": 7,
+      "subsample": 0.608233797718321,
+      "colsample_bytree": 0.9849549260809971,
+      "reg_lambda": 4.622589001020832,
+      "min_child_weight": 3
+    },
+    "LightGBM": {
+      "n_estimators": 496,
+      "learning_rate": 0.022257706349811456,
+      "num_leaves": 67,
+      "min_child_samples": 11,
+      "subsample": 0.6260206371941118,
+      "colsample_bytree": 0.9744427686266666,
+      "reg_lambda": 8.536189862866832,
+      "subsample_freq": 1
+    },
+    "CatBoost": {
+      "iterations": 487,
+      "depth": 8,
+      "learning_rate": 0.12028665880905137,
+      "l2_leaf_reg": 6.387926357773329
+    }
+  },
+  "per_crop_metrics": {
+    "Chickpea": {
+      "r2": 0.6670617767539628,
+      "mae": 0.1305376816653013,
+      "rmse": 0.2012114886153717,
+      "mape": 26.5170120905086
+    },
+    "Cotton": {
+      "r2": 0.8561472900581096,
+      "mae": 0.12904174877847588,
+      "rmse": 0.17697767981229717,
+      "mape": 8.330258764242672
+    },
+    "Groundnut": {
+      "r2": 0.8864249449233322,
+      "mae": 0.10490993044193715,
+      "rmse": 0.1354872274662984,
+      "mape": 9.804854045656072
+    },
+    "Maize": {
+      "r2": 0.8362721741470951,
+      "mae": 0.29432498067819884,
+      "rmse": 0.42953418802596965,
+      "mape": 19.49717715275193
+    },
+    "Pigeonpea": {
+      "r2": 0.815550982086783,
+      "mae": 0.08604661305833684,
+      "rmse": 0.11180363771904926,
+      "mape": 9.720796544556274
+    },
+    "Ragi": {
+      "r2": 0.8631233826994622,
+      "mae": 0.14469636922687754,
+      "rmse": 0.20077036618983188,
+      "mape": 10.342763577955731
+    },
+    "Rice": {
+      "r2": 0.9134634280705254,
+      "mae": 0.24746028140273105,
+      "rmse": 0.3218234172507302,
+      "mape": 9.27831217096296
+    },
+    "Sorghum": {
+      "r2": 0.6513115712492699,
+      "mae": 0.1473225584730147,
+      "rmse": 0.25616521851853424,
+      "mape": 15.381116436248602
+    },
+    "Soybean": {
+      "r2": 0.9036932133475819,
+      "mae": 0.12354256659013485,
+      "rmse": 0.16367646518781695,
+      "mape": 8.28986641533501
+    },
+    "Wheat": {
+      "r2": 0.8088692078080474,
+      "mae": 0.27959549249081167,
+      "rmse": 0.41230913466463454,
+      "mape": 11.910246362360574
+    }
+  },
+  "uncertainty": {
+    "nominal_coverage": 0.8,
+    "qhat_conformal_correction": 0.016316884243284438,
+    "coverage_raw_quantile": 0.7655902004454342,
+    "coverage_calibrated": 0.8140311804008908,
+    "mean_interval_width_t_ha": 0.5450998715351778,
+    "method": "quantile regression on relative error + CQR"
+  },
+  "global_importance": {
+    "crop": 0.6725812710325908,
+    "total_water_mm": 0.15940673482338952,
+    "soil_type": 0.10127763638029252,
+    "temperature_c": 0.08955132688920782,
+    "ph_deviation": 0.08009431895352996,
+    "rain_temp_interaction": 0.05429921562098552,
+    "year": 0.0527452546236504,
+    "ph": 0.05027438281078793,
+    "years_since_2000": 0.05023524817970502,
+    "rainfall_mm": 0.046829032671326785,
+    "npk_total": 0.033335955579454055,
+    "season": 0.031956421574259604,
+    "aridity_index": 0.029429528002389668,
+    "irrigation": 0.028898605846446858,
+    "fertilizer_kg_ha": 0.021295276857117337,
+    "phosphorus": 0.020692866766110714,
+    "p_k_ratio": 0.01729989711515772,
+    "n_p_ratio": 0.012318239351014908,
+    "season_ord": 0.011340167212002632,
+    "nitrogen": 0.009489568183730599
+  },
+  "residual_summary": {
+    "mean": 0.005015194964734142,
+    "std": 0.2650195224348807,
+    "skew": -1.881227162632369
+  },
+  "features": {
+    "categorical": [
+      "crop",
+      "region",
+      "season",
+      "soil_type",
+      "irrigation"
+    ],
+    "numeric": [
+      "ph",
+      "nitrogen",
+      "phosphorus",
+      "potassium",
+      "rainfall_mm",
+      "temperature_c",
+      "humidity_pct",
+      "area_ha",
+      "fertilizer_kg_ha",
+      "year"
+    ],
+    "engineered": [
+      "rain_temp_interaction",
+      "total_water_mm",
+      "aridity_index",
+      "heat_humidity_index",
+      "n_p_ratio",
+      "n_k_ratio",
+      "p_k_ratio",
+      "npk_total",
+      "fert_per_soil_n",
+      "ph_deviation",
+      "season_ord",
+      "log_area",
+      "years_since_2000"
+    ]
+  },
+  "benchmarks": {
+    "Chickpea": {
+      "median_yield": 1.185,
+      "p75_yield": 1.399,
+      "p90_yield": 1.6018000000000001,
+      "top_quartile_median": {
+        "ph": 6.869,
+        "nitrogen": 94.5305,
+        "phosphorus": 28.729,
+        "potassium": 120.04150000000001,
+        "rainfall_mm": 186.54649999999998,
+        "temperature_c": 21.360500000000002,
+        "fertilizer_kg_ha": 69.111
+      },
+      "best_irrigation": "Canal",
+      "best_soil": "Black"
+    },
+    "Cotton": {
+      "median_yield": 1.575,
+      "p75_yield": 1.899,
+      "p90_yield": 2.153,
+      "top_quartile_median": {
+        "ph": 6.823,
+        "nitrogen": 106.1045,
+        "phosphorus": 26.430999999999997,
+        "potassium": 128.33,
+        "rainfall_mm": 701.1914999999999,
+        "temperature_c": 28.026,
+        "fertilizer_kg_ha": 97.239
+      },
+      "best_irrigation": "Rainfed",
+      "best_soil": "Black"
+    },
+    "Groundnut": {
+      "median_yield": 1.202,
+      "p75_yield": 1.5145,
+      "p90_yield": 1.7558,
+      "top_quartile_median": {
+        "ph": 6.509,
+        "nitrogen": 99.269,
+        "phosphorus": 26.2485,
+        "potassium": 128.734,
+        "rainfall_mm": 541.127,
+        "temperature_c": 28.4645,
+        "fertilizer_kg_ha": 78.601
+      },
+      "best_irrigation": "Rainfed",
+      "best_soil": "Loamy"
+    },
+    "Maize": {
+      "median_yield": 3.1195000000000004,
+      "p75_yield": 3.834,
+      "p90_yield": 4.452,
+      "top_quartile_median": {
+        "ph": 6.567,
+        "nitrogen": 111.33699999999999,
+        "phosphorus": 27.332,
+        "potassium": 117.272,
+        "rainfall_mm": 501.507,
+        "temperature_c": 24.756,
+        "fertilizer_kg_ha": 92.7485
+      },
+      "best_irrigation": "Tubewell",
+      "best_soil": "Loamy"
+    },
+    "Pigeonpea": {
+      "median_yield": 0.943,
+      "p75_yield": 1.113,
+      "p90_yield": 1.263,
+      "top_quartile_median": {
+        "ph": 6.617,
+        "nitrogen": 92.078,
+        "phosphorus": 26.646500000000003,
+        "potassium": 120.84700000000001,
+        "rainfall_mm": 719.5685000000001,
+        "temperature_c": 28.04,
+        "fertilizer_kg_ha": 72.0865
+      },
+      "best_irrigation": "Rainfed",
+      "best_soil": "Black"
+    },
+    "Ragi": {
+      "median_yield": 1.3725,
+      "p75_yield": 1.7642499999999999,
+      "p90_yield": 2.0931,
+      "top_quartile_median": {
+        "ph": 6.448499999999999,
+        "nitrogen": 98.263,
+        "phosphorus": 26.156,
+        "potassium": 120.935,
+        "rainfall_mm": 531.2525,
+        "temperature_c": 27.463,
+        "fertilizer_kg_ha": 92.4185
+      },
+      "best_irrigation": "Rainfed",
+      "best_soil": "Red"
+    },
+    "Rice": {
+      "median_yield": 2.5845000000000002,
+      "p75_yield": 3.598,
+      "p90_yield": 4.3377,
+      "top_quartile_median": {
+        "ph": 6.462,
+        "nitrogen": 105.2625,
+        "phosphorus": 27.589,
+        "potassium": 122.186,
+        "rainfall_mm": 1055.3255,
+        "temperature_c": 27.822,
+        "fertilizer_kg_ha": 93.6665
+      },
+      "best_irrigation": "Tubewell",
+      "best_soil": "Black"
+    },
+    "Sorghum": {
+      "median_yield": 1.2625,
+      "p75_yield": 1.5430000000000001,
+      "p90_yield": 1.8373000000000002,
+      "top_quartile_median": {
+        "ph": 6.6975,
+        "nitrogen": 104.646,
+        "phosphorus": 25.977,
+        "potassium": 116.0315,
+        "rainfall_mm": 450.688,
+        "temperature_c": 26.715,
+        "fertilizer_kg_ha": 85.59049999999999
+      },
+      "best_irrigation": "Tubewell",
+      "best_soil": "Black"
+    },
+    "Soybean": {
+      "median_yield": 1.5255,
+      "p75_yield": 1.867,
+      "p90_yield": 2.191,
+      "top_quartile_median": {
+        "ph": 6.63,
+        "nitrogen": 102.3745,
+        "phosphorus": 27.416,
+        "potassium": 116.88,
+        "rainfall_mm": 629.559,
+        "temperature_c": 27.308,
+        "fertilizer_kg_ha": 78.9745
+      },
+      "best_irrigation": "Rainfed",
+      "best_soil": "Loamy"
+    },
+    "Wheat": {
+      "median_yield": 3.2115,
+      "p75_yield": 3.78325,
+      "p90_yield": 4.317200000000001,
+      "top_quartile_median": {
+        "ph": 6.749,
+        "nitrogen": 105.68,
+        "phosphorus": 25.745,
+        "potassium": 128.488,
+        "rainfall_mm": 202.149,
+        "temperature_c": 20.802500000000002,
+        "fertilizer_kg_ha": 93.0875
+      },
+      "best_irrigation": "Canal",
+      "best_soil": "Alluvial"
+    }
+  },
+  "feature_ranges": {
+    "ph": {
+      "min": 4.6528,
+      "max": 8.757,
+      "median": 6.704
+    },
+    "nitrogen": {
+      "min": 15.61202,
+      "max": 195.19893999999945,
+      "median": 104.228
+    },
+    "phosphorus": {
+      "min": 15.0,
+      "max": 58.817899999999725,
+      "median": 27.732
+    },
+    "potassium": {
+      "min": 21.8812,
+      "max": 228.4405399999999,
+      "median": 124.221
+    },
+    "rainfall_mm": {
+      "min": 88.56313,
+      "max": 2100.3593900000014,
+      "median": 561.278
+    },
+    "temperature_c": {
+      "min": 15.948265,
+      "max": 35.509,
+      "median": 26.8975
+    },
+    "humidity_pct": {
+      "min": 24.48109,
+      "max": 98.0,
+      "median": 60.578
+    },
+    "area_ha": {
+      "min": 0.26678,
+      "max": 15.542910000000047,
+      "median": 2.022
+    },
+    "fertilizer_kg_ha": {
+      "min": 0.0,
+      "max": 240.71247999999957,
+      "median": 95.306
+    }
+  },
+  "crop_profiles": {
+    "Rice": {
+      "base": 4.6,
+      "temp": [
+        27,
+        5
+      ],
+      "rain": [
+        1100,
+        380
+      ],
+      "ph": 6.2,
+      "npk": [
+        130,
+        55,
+        100
+      ],
+      "seasons": [
+        "Kharif",
+        "Summer"
+      ]
+    },
+    "Wheat": {
+      "base": 4.2,
+      "temp": [
+        20,
+        5
+      ],
+      "rain": [
+        420,
+        160
+      ],
+      "ph": 6.8,
+      "npk": [
+        130,
+        55,
+        90
+      ],
+      "seasons": [
+        "Rabi"
+      ]
+    },
+    "Maize": {
+      "base": 4.8,
+      "temp": [
+        25,
+        5
+      ],
+      "rain": [
+        620,
+        220
+      ],
+      "ph": 6.5,
+      "npk": [
+        150,
+        60,
+        90
+      ],
+      "seasons": [
+        "Kharif",
+        "Rabi"
+      ]
+    },
+    "Cotton": {
+      "base": 2.2,
+      "temp": [
+        28,
+        5
+      ],
+      "rain": [
+        700,
+        240
+      ],
+      "ph": 7.0,
+      "npk": [
+        130,
+        55,
+        100
+      ],
+      "seasons": [
+        "Kharif"
+      ]
+    },
+    "Groundnut": {
+      "base": 2.1,
+      "temp": [
+        27,
+        4
+      ],
+      "rain": [
+        560,
+        190
+      ],
+      "ph": 6.3,
+      "npk": [
+        60,
+        50,
+        90
+      ],
+      "seasons": [
+        "Kharif",
+        "Summer"
+      ]
+    },
+    "Ragi": {
+      "base": 2.6,
+      "temp": [
+        26,
+        4
+      ],
+      "rain": [
+        480,
+        170
+      ],
+      "ph": 6.0,
+      "npk": [
+        80,
+        45,
+        70
+      ],
+      "seasons": [
+        "Kharif"
+      ]
+    },
+    "Soybean": {
+      "base": 2.4,
+      "temp": [
+        26,
+        4
+      ],
+      "rain": [
+        650,
+        190
+      ],
+      "ph": 6.5,
+      "npk": [
+        60,
+        55,
+        90
+      ],
+      "seasons": [
+        "Kharif"
+      ]
+    },
+    "Chickpea": {
+      "base": 1.7,
+      "temp": [
+        21,
+        4
+      ],
+      "rain": [
+        330,
+        140
+      ],
+      "ph": 7.0,
+      "npk": [
+        50,
+        50,
+        70
+      ],
+      "seasons": [
+        "Rabi"
+      ]
+    },
+    "Pigeonpea": {
+      "base": 1.4,
+      "temp": [
+        27,
+        5
+      ],
+      "rain": [
+        700,
+        230
+      ],
+      "ph": 6.6,
+      "npk": [
+        50,
+        50,
+        80
+      ],
+      "seasons": [
+        "Kharif"
+      ]
+    },
+    "Sorghum": {
+      "base": 2.0,
+      "temp": [
+        28,
+        5
+      ],
+      "rain": [
+        500,
+        200
+      ],
+      "ph": 6.7,
+      "npk": [
+        100,
+        50,
+        80
+      ],
+      "seasons": [
+        "Kharif",
+        "Rabi"
+      ]
+    }
+  },
+  "economics": {
+    "Rice": {
+      "price_per_tonne": 22000,
+      "cost_per_ha": 58000
+    },
+    "Wheat": {
+      "price_per_tonne": 24000,
+      "cost_per_ha": 46000
+    },
+    "Maize": {
+      "price_per_tonne": 21000,
+      "cost_per_ha": 48000
+    },
+    "Cotton": {
+      "price_per_tonne": 70000,
+      "cost_per_ha": 72000
+    },
+    "Groundnut": {
+      "price_per_tonne": 65000,
+      "cost_per_ha": 56000
+    },
+    "Ragi": {
+      "price_per_tonne": 42000,
+      "cost_per_ha": 36000
+    },
+    "Soybean": {
+      "price_per_tonne": 47000,
+      "cost_per_ha": 42000
+    },
+    "Chickpea": {
+      "price_per_tonne": 56000,
+      "cost_per_ha": 38000
+    },
+    "Pigeonpea": {
+      "price_per_tonne": 70000,
+      "cost_per_ha": 40000
+    },
+    "Sorghum": {
+      "price_per_tonne": 31000,
+      "cost_per_ha": 33000
+    }
+  },
+  "categories": {
+    "crop": [
+      "Chickpea",
+      "Cotton",
+      "Groundnut",
+      "Maize",
+      "Pigeonpea",
+      "Ragi",
+      "Rice",
+      "Sorghum",
+      "Soybean",
+      "Wheat"
+    ],
+    "region": [
+      "Andhra Pradesh",
+      "Bihar",
+      "Gujarat",
+      "Karnataka",
+      "Madhya Pradesh",
+      "Maharashtra",
+      "Punjab",
+      "Tamil Nadu",
+      "Uttar Pradesh",
+      "West Bengal"
+    ],
+    "season": [
+      "Kharif",
+      "Rabi",
+      "Summer"
+    ],
+    "soil_type": [
+      "Alluvial",
+      "Black",
+      "Laterite",
+      "Loamy",
+      "Red",
+      "Sandy"
+    ],
+    "irrigation": [
+      "Canal",
+      "Drip",
+      "Rainfed",
+      "Sprinkler",
+      "Tubewell"
+    ]
+  }
+}

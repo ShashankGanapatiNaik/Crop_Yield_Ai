@@ -1,0 +1,15 @@
+{
+  "best_model": "Stacking Ensemble",
+  "r2": 0.9380500710190268,
+  "mae": 0.1698253321706465,
+  "rmse": 0.26506697163574816,
+  "mape": 12.963691316820402,
+  "uncertainty": {
+    "nominal_coverage": 0.8,
+    "qhat_conformal_correction": 0.016316884243284438,
+    "coverage_raw_quantile": 0.7655902004454342,
+    "coverage_calibrated": 0.8140311804008908,
+    "mean_interval_width_t_ha": 0.5450998715351778,
+    "method": "quantile regression on relative error + CQR"
+  }
+}

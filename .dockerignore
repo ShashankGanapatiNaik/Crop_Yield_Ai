@@ -1,0 +1,10 @@
+**/node_modules
+**/__pycache__
+frontend/dist
+.git
+.github
+*.db
+ml/.cache
+ml/mlflow.db
+docs
+tests

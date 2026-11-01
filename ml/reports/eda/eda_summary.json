@@ -1,0 +1,150 @@
+{
+  "source": "synthetic dataset (agronomic response simulator)",
+  "rows": 9000,
+  "columns": [
+    "crop",
+    "region",
+    "season",
+    "soil_type",
+    "irrigation",
+    "ph",
+    "nitrogen",
+    "phosphorus",
+    "potassium",
+    "rainfall_mm",
+    "temperature_c",
+    "humidity_pct",
+    "area_ha",
+    "fertilizer_kg_ha",
+    "year",
+    "yield_t_ha"
+  ],
+  "missing_pct": {
+    "crop": 0.0,
+    "region": 0.0,
+    "season": 0.0,
+    "soil_type": 0.0,
+    "irrigation": 0.0,
+    "ph": 3.0,
+    "nitrogen": 3.0,
+    "phosphorus": 3.0,
+    "potassium": 3.0,
+    "rainfall_mm": 0.0,
+    "temperature_c": 3.0,
+    "humidity_pct": 3.0,
+    "area_ha": 0.0,
+    "fertilizer_kg_ha": 3.0,
+    "year": 0.0,
+    "yield_t_ha": 0.0
+  },
+  "yield_stats_by_crop": {
+    "Chickpea": {
+      "count": 912.0,
+      "mean": 1.187,
+      "std": 0.371,
+      "min": 0.076,
+      "25%": 0.96,
+      "50%": 1.186,
+      "75%": 1.4,
+      "max": 5.387
+    },
+    "Cotton": {
+      "count": 873.0,
+      "mean": 1.573,
+      "std": 0.55,
+      "min": 0.082,
+      "25%": 1.273,
+      "50%": 1.576,
+      "75%": 1.9,
+      "max": 8.449
+    },
+    "Groundnut": {
+      "count": 927.0,
+      "mean": 1.22,
+      "std": 0.47,
+      "min": 0.086,
+      "25%": 0.903,
+      "50%": 1.204,
+      "75%": 1.517,
+      "max": 5.664
+    },
+    "Maize": {
+      "count": 910.0,
+      "mean": 3.077,
+      "std": 1.056,
+      "min": 0.253,
+      "25%": 2.269,
+      "50%": 3.12,
+      "75%": 3.834,
+      "max": 5.827
+    },
+    "Pigeonpea": {
+      "count": 864.0,
+      "mean": 0.939,
+      "std": 0.322,
+      "min": 0.063,
+      "25%": 0.756,
+      "50%": 0.945,
+      "75%": 1.116,
+      "max": 4.682
+    },
+    "Ragi": {
+      "count": 936.0,
+      "mean": 1.411,
+      "std": 0.606,
+      "min": 0.115,
+      "25%": 0.977,
+      "50%": 1.373,
+      "75%": 1.767,
+      "max": 9.508
+    },
+    "Rice": {
+      "count": 895.0,
+      "mean": 2.736,
+      "std": 1.241,
+      "min": 0.742,
+      "25%": 1.731,
+      "50%": 2.586,
+      "75%": 3.602,
+      "max": 14.008
+    },
+    "Sorghum": {
+      "count": 891.0,
+      "mean": 1.277,
+      "std": 0.435,
+      "min": 0.098,
+      "25%": 0.964,
+      "50%": 1.263,
+      "75%": 1.546,
+      "max": 4.325
+    },
+    "Soybean": {
+      "count": 846.0,
+      "mean": 1.507,
+      "std": 0.525,
+      "min": 0.118,
+      "25%": 1.118,
+      "50%": 1.526,
+      "75%": 1.867,
+      "max": 3.02
+    },
+    "Wheat": {
+      "count": 946.0,
+      "mean": 3.219,
+      "std": 1.146,
+      "min": 0.15,
+      "25%": 2.559,
+      "50%": 3.216,
+      "75%": 3.797,
+      "max": 13.436
+    }
+  },
+  "top_corr_with_relative_yield": {
+    "year": 0.17,
+    "rainfall_mm": -0.136,
+    "fertilizer_kg_ha": -0.094,
+    "phosphorus": -0.071,
+    "humidity_pct": -0.057,
+    "ph": -0.052
+  }
+}

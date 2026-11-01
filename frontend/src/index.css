@@ -1,0 +1,39 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg: 243 246 239; --surface: 255 255 255; --sunken: 232 239 227; --ink: 23 35 28; --muted: 88 107 94; --line: 213 223 209;
+  --brand: 31 107 69; --brand-strong: 20 71 47; --brand-soft: 222 238 226; --on-brand: 255 255 255;
+  --marigold: 214 143 12; --danger: 185 40 40; --warn: 170 85 15; --info: 36 96 168; --good: 30 115 66;
+}
+.dark {
+  --bg: 13 24 18; --surface: 20 35 26; --sunken: 27 46 34; --ink: 230 239 232; --muted: 152 172 158; --line: 42 64 50;
+  --brand: 112 192 132; --brand-strong: 150 214 165; --brand-soft: 28 56 38; --on-brand: 10 26 16;
+  --marigold: 240 176 52; --danger: 242 128 118; --warn: 236 162 92; --info: 122 177 238; --good: 122 202 142;
+}
+
+@layer base {
+  html { color-scheme: light; }
+  html.dark { color-scheme: dark; }
+  body { @apply bg-bg text-ink font-sans antialiased; font-size: 16px; line-height: 1.55; }
+  h1, h2, h3 { @apply font-display; letter-spacing: -0.01em; }
+  :focus-visible { outline: 3px solid rgb(var(--marigold)); outline-offset: 2px; border-radius: 6px; }
+  input[type='range'] { accent-color: rgb(var(--brand)); }
+  @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; scroll-behavior: auto !important; } }
+}
+
+@layer components {
+  .field-input { @apply w-full rounded-lg border border-line bg-surface px-3 py-2.5 text-ink placeholder:text-muted/70 focus:border-brand; min-height: 44px; }
+  .field-input[aria-invalid='true'] { @apply border-danger; }
+  .btn { @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 font-semibold transition-colors disabled:opacity-60 disabled:cursor-not-allowed; min-height: 44px; }
+  .btn-primary { @apply bg-brand text-on-brand hover:bg-brand-strong; }
+  .btn-outline { @apply border border-line bg-surface text-ink hover:bg-sunken; }
+  .btn-ghost { @apply text-ink hover:bg-sunken; }
+  .btn-danger { @apply border border-danger/40 text-danger hover:bg-danger/10; }
+  .panel { @apply rounded-2xl border border-line bg-surface; }
+  .skeleton { @apply rounded-md bg-sunken; animation: pulse 1.4s ease-in-out infinite; }
+}
+@keyframes pulse { 0%, 100% { opacity: 1 } 50% { opacity: .45 } }
+@keyframes drift { from { stroke-dashoffset: 0 } to { stroke-dashoffset: -240 } }
+.furrow { stroke-dasharray: 6 18; animation: drift 24s linear infinite; }

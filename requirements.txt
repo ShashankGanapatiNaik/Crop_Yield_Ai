@@ -1,0 +1,8 @@
+# Full development environment: API + ML training + tests + lint.
+-r backend/requirements.txt
+optuna>=4.0
+mlflow>=2.14,<2.16
+matplotlib>=3.9
+seaborn>=0.13
+pytest>=8.0
+ruff>=0.6

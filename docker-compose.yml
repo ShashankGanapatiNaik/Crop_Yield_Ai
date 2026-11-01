@@ -1,0 +1,36 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-cropai}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-cropai}
+      POSTGRES_DB: ${POSTGRES_DB:-cropai}
+    volumes: [pgdata:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-cropai} -d ${POSTGRES_DB:-cropai}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build: { context: ., dockerfile: backend/Dockerfile }
+    environment:
+      DATABASE_URL: postgresql+psycopg2://${POSTGRES_USER:-cropai}:${POSTGRES_PASSWORD:-cropai}@db:5432/${POSTGRES_DB:-cropai}
+      SECRET_KEY: ${SECRET_KEY:-change-me-in-production-please-use-a-long-random-string}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@cropai.app}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-Admin@12345}
+      MODEL_VERSION: ${MODEL_VERSION:-latest}
+    depends_on:
+      db: { condition: service_healthy }
+    ports: ["8000:8000"]
+    # Mount artifacts so a retrained model is picked up on restart without rebuilding the image.
+    volumes: ["./ml/artifacts:/app/ml/artifacts:ro"]
+
+  frontend:
+    build: { context: ., dockerfile: frontend/Dockerfile }
+    depends_on: [backend]
+    ports: ["3000:80"]
+
+volumes:
+  pgdata:
