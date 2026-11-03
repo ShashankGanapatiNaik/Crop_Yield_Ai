@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { api } from '../api'
 import RecoCard from '../components/RecoCard'
 import ShapChart from '../components/ShapChart'
+import DataBadge from '../components/DataBadge'
 import YieldRange from '../components/YieldRange'
 import { ErrorBox, Icon, Skeleton, Spinner } from '../components/ui'
 import { useFetch } from '../hooks/useFetch'
@@ -42,6 +43,14 @@ export default function Result() {
           <button className="btn btn-primary" onClick={pdf} disabled={pdfBusy}>{pdfBusy ? <Spinner /> : <Icon name="down" />} {t('result.pdf')}</button>
         </div>
       </header>
+
+      <DataBadge mode={p.data_mode ?? 'synthetic'} compact />
+      {(p.data_notes?.length ?? 0) > 0 && (
+        <ul className="space-y-1 rounded-xl bg-sunken p-4 text-sm" aria-label="Data notes">
+          {p.estimated_inputs && p.estimated_inputs.length > 0 && <li className="font-semibold">{t('data.estimated_from', { fields: p.estimated_inputs.join(', ') })}</li>}
+          {p.data_notes!.map((n, i) => <li key={i} className="text-muted">{n}</li>)}
+        </ul>
+      )}
 
       <section className="panel p-6 sm:p-8" aria-labelledby="yl">
         <div className="grid gap-8 md:grid-cols-[auto_1fr] md:items-center">

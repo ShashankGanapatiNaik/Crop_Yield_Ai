@@ -1,0 +1,34 @@
+# Configuration for the REAL district-level data pipeline. Edit freely; every key has a default in ml/src/real_config.py.
+# Select the dataset for training with:  python -m ml.src.train --data real      (or env CROPAI_DATA_MODE=real)
+
+[apy]
+states = []                            # e.g. ["Karnataka"] for a first trial run: far fewer districts to geocode, download weather and soil for
+seasons = ["Kharif", "Rabi", "Summer"]   # the app's three seasons. "Whole Year", "Autumn", "Winter" are dropped by default
+min_year = 1997
+max_year = 2022
+min_area_ha = 100.0                      # tiny sown areas give unstable yield ratios
+drop_zero_production = true              # APY zeros are often "not reported", not true crop failure
+
+[cleaning]
+# Production-unit assumptions used ONLY when the source file has no unit columns (e.g. the Kaggle copy).
+# tonnes per source unit. Cotton is reported in bales in APY; remove or set to 0 to exclude cotton instead of assuming.
+# Left empty by default: we never assume a unit silently.
+unit_assumptions = {}
+
+[weather]
+provider = "nasa_power"                  # "nasa_power" (default, no key, bulk-friendly) or "open_meteo"
+min_season_coverage = 0.9                # fraction of days in the season window that must have data
+request_sleep_s = 1.0
+
+[soil]
+source = "soilgrids"                     # "soilgrids" | "csv" | "none"
+request_sleep_s = 13.0                   # SoilGrids public API is limited to ~5 calls/minute
+require_soil = true
+
+[split]
+test_years = 3                           # most recent crop years -> final test
+val_years = 2                            # the years before that -> validation / model selection
+min_rows_per_group_report = 30
+
+[train]
+final_fit = "train_val"                  # "train" | "train_val" | "all"   (what the DEPLOYED model is fitted on)

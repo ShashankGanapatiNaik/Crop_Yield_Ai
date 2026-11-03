@@ -16,7 +16,8 @@ class Settings(BaseSettings):
     access_token_expire_minutes: int = 60 * 12
     cors_origins: str = "http://localhost:5173,http://localhost:3000"
     model_dir: str = str(ROOT / "ml" / "artifacts")
-    model_version: str = "latest"  # or an integer, e.g. "1"
+    model_version: str = "latest"  # "latest" | N (synthetic model_vN) | "real_latest" | "real_district_vN"
+    reports_dir: str = str(ROOT / "ml" / "reports")
     rate_limit_enabled: bool = True
     rate_limit_default: str = "120/minute"
     rate_limit_predict: str = "30/minute"

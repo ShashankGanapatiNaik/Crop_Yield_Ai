@@ -4,9 +4,10 @@ import { Bar, BarChart, CartesianGrid, Cell, ResponsiveContainer, Tooltip, XAxis
 import { api, ApiError } from '../api'
 import ConditionsForm from '../components/ConditionsForm'
 import YieldRange from '../components/YieldRange'
+import DataBadge from '../components/DataBadge'
 import { ErrorBox, PageTitle, Skeleton, Spinner } from '../components/ui'
 import { useFetch } from '../hooks/useFetch'
-import { DEFAULT_FORM, fromInputs, lastInputs, toInputs, validate, type Errors } from '../ranges'
+import { DEFAULT_FORM, fromInputs, lastInputs, toInputs, unusedKeys, validate, type Errors } from '../ranges'
 import { useTheme } from '../theme'
 import { useToast } from '../toast'
 import type { CompareRow, FormState } from '../types'
@@ -26,12 +27,12 @@ export default function Compare() {
 
   const run = async (e: FormEvent) => {
     e.preventDefault()
-    const v = validate(form)
+    const v = validate(form, unusedKeys(meta.data?.input_schema?.used))
     setErrors(v)
     if (Object.keys(v).length) return toast('error', t('form.fix'))
     setBusy(true)
     try {
-      const inputs = toInputs(form)
+      const inputs = toInputs(form, meta.data?.input_schema?.used)
       const { crop: _c, ...rest } = inputs
       void _c
       const r = await api.compare(rest)
@@ -45,6 +46,7 @@ export default function Compare() {
   return (
     <>
       <PageTitle title={t('compare.title')} sub={t('compare.subtitle')} />
+      {meta.data && <div className="mb-5"><DataBadge mode={meta.data.data_mode} compact /></div>}
       {meta.error && <ErrorBox message={meta.error} onRetry={meta.reload} />}
       {meta.data && (
         <form onSubmit={run} noValidate className="mb-8">

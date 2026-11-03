@@ -48,3 +48,21 @@ def interval(point, X, q_lo, q_hi, q_hat: float, calibrated: bool = True):
     lo = point * np.clip(a - k, 0.05, None)
     hi = point * np.maximum(b + k, a)
     return np.minimum(lo, point), np.maximum(hi, point)
+
+
+def fit_interval_models_temporal(build, surrogate_estimator, X_tr, y_tr, X_cal, y_cal, point_cal, coverage: float = 0.8):
+    """Chronological variant for real data.
+    Ratio-quantile models are fitted on the TRAINING years (ratios from out-of-fold surrogate predictions); the conformal
+    correction q_hat is computed on LATER, held-out calibration years using the real point predictions, so the interval is
+    calibrated the way it will be used: on years the model has not seen."""
+    oof = np.clip(cross_val_predict(build(surrogate_estimator), X_tr, y_tr, cv=KFold(5, shuffle=True, random_state=RANDOM_STATE)), 1e-3, None)
+    ratio = np.clip(np.asarray(y_tr) / oof, R_MIN, R_MAX)
+    alpha = (1 - coverage) / 2
+    q_lo = _quantile_pipe(build, alpha).fit(X_tr, ratio)
+    q_hi = _quantile_pipe(build, 1 - alpha).fit(X_tr, ratio)
+    lo, hi = np.sort(np.vstack([q_lo.predict(X_cal), q_hi.predict(X_cal)]), axis=0)
+    r_cal = np.clip(np.asarray(y_cal) / np.clip(np.asarray(point_cal), 1e-3, None), R_MIN, R_MAX)
+    scores = np.maximum(lo - r_cal, r_cal - hi)
+    n = len(scores)
+    q_hat = float(np.quantile(scores, min(1.0, np.ceil((n + 1) * coverage) / n)))
+    return q_lo, q_hi, q_hat

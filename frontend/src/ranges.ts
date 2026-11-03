@@ -18,7 +18,7 @@ export const CAT_KEYS: CatKey[] = ['crop', 'region', 'season', 'soil_type', 'irr
 export const DEFAULT_FORM: FormState = {
   crop: 'Rice', region: 'Karnataka', season: 'Kharif', soil_type: 'Loamy', irrigation: 'Canal',
   ph: '6.5', nitrogen: '100', phosphorus: '30', potassium: '120', rainfall_mm: '800', temperature_c: '27',
-  humidity_pct: '70', area_ha: '1', fertilizer_kg_ha: '90', year: String(new Date().getFullYear()),
+  humidity_pct: '70', area_ha: '1', fertilizer_kg_ha: '90', year: String(new Date().getFullYear()), district: '',
 }
 
 export type Errors = Partial<Record<keyof FormState, 'required' | 'range'>>
@@ -36,17 +36,30 @@ export function validate(f: FormState, skip: (keyof FormState)[] = []): Errors {
   return e
 }
 
-export function toInputs(f: FormState): Inputs {
+/** used = the active model's input schema (undefined -> send everything). Fields the model does not use are never sent. */
+export function toInputs(f: FormState, used?: string[]): Inputs {
   const n = (k: NumKey) => Number(f[k])
-  return {
+  const full: Inputs = {
     crop: f.crop, region: f.region, season: f.season, soil_type: f.soil_type, irrigation: f.irrigation,
     ph: n('ph'), nitrogen: n('nitrogen'), phosphorus: n('phosphorus'), potassium: n('potassium'), rainfall_mm: n('rainfall_mm'),
     temperature_c: n('temperature_c'), humidity_pct: n('humidity_pct'), area_ha: n('area_ha'), fertilizer_kg_ha: n('fertilizer_kg_ha'), year: n('year'),
   }
+  if (!used) return full
+  const keep = new Set([...used, 'crop', 'region', 'season', 'area_ha', 'year'])
+  const out = Object.fromEntries(Object.entries(full).filter(([k]) => keep.has(k))) as unknown as Inputs
+  if (f.district) out.district = f.district
+  return out
 }
 
-export function fromInputs(i: Inputs): FormState {
-  return { ...Object.fromEntries(Object.entries(i).map(([k, v]) => [k, String(v)])) } as FormState
+/** Numeric form keys the active model does not use: skipped by validation. */
+export function unusedKeys(used?: string[]): (keyof FormState)[] {
+  return used ? (Object.keys(NUM_SPECS) as NumKey[]).filter((k) => !used.includes(k) && k !== 'area_ha' && k !== 'year') : []
+}
+
+export function fromInputs(i: Partial<Inputs>): FormState {
+  // merge over defaults: a saved prediction from a different model may lack some fields
+  const given = Object.entries(i).filter(([, v]) => v !== undefined && v !== null).map(([k, v]) => [k, String(v)])
+  return { ...DEFAULT_FORM, ...Object.fromEntries(given) } as FormState
 }
 
 const LAST = 'cropai_last_inputs'

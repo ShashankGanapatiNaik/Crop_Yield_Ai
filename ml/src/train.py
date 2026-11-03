@@ -5,10 +5,11 @@ Usage (from repo root):  python -m ml.src.train --trials 15 --folds 5
 """
 import argparse
 import json
+import os
 import re
 import time
 import warnings
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import joblib
 import matplotlib
@@ -57,7 +58,7 @@ from .config import (
     TARGET,
 )
 from .data_gen import load_or_generate
-from .features import ENGINEERED, FeatureEngineer
+from .features import ENGINEERED, DistrictFeatureEngineer, FeatureEngineer, FeatureSpec
 from .meta import make_benchmarks, make_ranges
 from .uncertainty import fit_interval_models, interval
 
@@ -82,7 +83,14 @@ def clean(df: pd.DataFrame) -> tuple[pd.DataFrame, dict]:
     return df[keep].reset_index(drop=True), info
 
 
-def make_preprocessor() -> Pipeline:
+def make_preprocessor(spec: FeatureSpec | None = None) -> Pipeline:
+    """spec=None -> the original SYNTHETIC schema (unchanged behaviour). spec given -> REAL-data schema."""
+    if spec is not None:
+        ct = ColumnTransformer([
+            ("num", StandardScaler(), spec.numeric + spec.engineered),
+            ("cat", OneHotEncoder(handle_unknown="ignore", sparse_output=False), spec.categorical),
+        ], verbose_feature_names_out=True).set_output(transform="pandas")
+        return Pipeline([("fe", DistrictFeatureEngineer(spec.categorical, spec.numeric)), ("prep", ct)])
     num = NUMERIC + [c for c in ENGINEERED]
     ct = ColumnTransformer([
         ("num", StandardScaler(), num),
@@ -91,7 +99,10 @@ def make_preprocessor() -> Pipeline:
     return Pipeline([("fe", FeatureEngineer()), ("prep", ct)])
 
 
-def build(model) -> Pipeline:
+def build(model, spec: FeatureSpec | None = None) -> Pipeline:
+    if spec is not None:
+        pre = make_preprocessor(spec)
+        return Pipeline([("fe", pre[0]), ("prep", pre[1]), ("model", model)])
     return Pipeline([("fe", FeatureEngineer()), ("prep", make_preprocessor()[1]), ("model", model)])
 
 
@@ -148,8 +159,9 @@ def metrics(y, p) -> dict:
             "mape": mean_absolute_percentage_error(y, p) * 100}
 
 
-def cv_metrics(pipe, X, y, folds) -> dict:
-    res = cross_validate(pipe, X, y, cv=KFold(folds, shuffle=True, random_state=SEED), scoring=SCORING, n_jobs=1)
+def cv_metrics(pipe, X, y, folds, cv=None) -> dict:
+    """cv: optional precomputed list of (train_idx, val_idx) (e.g. chronological blocks). Default = shuffled KFold (synthetic mode)."""
+    res = cross_validate(pipe, X, y, cv=cv if cv is not None else KFold(folds, shuffle=True, random_state=SEED), scoring=SCORING, n_jobs=1)
     out = {}
     for k in SCORING:
         v = res[f"test_{k}"] * (-1 if k != "r2" else 1)
@@ -159,17 +171,18 @@ def cv_metrics(pipe, X, y, folds) -> dict:
     return out
 
 
-def tune(name, X, y, trials):
+def tune(name, X, y, trials, spec: FeatureSpec | None = None, cv_fn=None):
     """Optuna TPE search minimising 3-fold CV RMSE; returns best params and the trial history."""
     if name == "Linear Regression" or trials <= 0:
         return {}, []
     history = []
     if len(X) > 4000:  # tune on a subsample for speed; the final model is refit and cross-validated on all data
         X = X.sample(4000, random_state=SEED); y = y.loc[X.index]
+    folds = cv_fn(X) if cv_fn is not None else KFold(3, shuffle=True, random_state=SEED)
 
     def objective(t):
         params = suggest(name, t)
-        s = cross_validate(build(make_model(name, params)), X, y, cv=KFold(3, shuffle=True, random_state=SEED),
+        s = cross_validate(build(make_model(name, params), spec), X, y, cv=folds,
                            scoring="neg_root_mean_squared_error", n_jobs=1)["test_score"].mean()
         history.append(-s)
         return -s
@@ -180,17 +193,17 @@ def tune(name, X, y, trials):
 
 
 # ----------------------------------------------------------------------------- plotting
-def plot_comparison(tbl: pd.DataFrame):
+def plot_comparison(tbl: pd.DataFrame, out=None):
     fig, ax = plt.subplots(1, 3, figsize=(17, 5))
     order = tbl.sort_values("test_rmse").index
     t = tbl.loc[order]
     ax[0].barh(t.index, t["test_r2"], color="#2f855a"); ax[0].set_title("Test R²"); ax[0].set_xlim(max(0, t["test_r2"].min() - .1), 1); ax[0].invert_yaxis()
     ax[1].barh(t.index, t["test_rmse"], color="#dd6b20"); ax[1].set_title("Test RMSE (t/ha)"); ax[1].invert_yaxis()
     ax[2].barh(t.index, t["cv_rmse"], xerr=t["cv_rmse_std"], color="#3182ce"); ax[2].set_title("5-fold CV RMSE (± std)"); ax[2].invert_yaxis()
-    plt.tight_layout(); plt.savefig(EVAL / "model_comparison.png", dpi=130); plt.close()
+    plt.tight_layout(); plt.savefig((out or EVAL) / "model_comparison.png", dpi=130); plt.close()
 
 
-def plot_residuals(y, p, crops, name):
+def plot_residuals(y, p, crops, name, out=None):
     r = y - p
     fig, ax = plt.subplots(2, 3, figsize=(17, 9))
     ax[0, 0].scatter(p, y, s=8, alpha=.4, color="#2f855a"); lim = [0, max(y.max(), p.max())]
@@ -201,7 +214,7 @@ def plot_residuals(y, p, crops, name):
     d = pd.DataFrame({"crop": crops.values, "residual": r.values})
     sns.boxplot(data=d, x="crop", y="residual", ax=ax[1, 1], color="#9ae6b4"); ax[1, 1].tick_params(axis="x", rotation=45); ax[1, 1].axhline(0, color="r", ls="--"); ax[1, 1].set_title("Residuals by crop")
     ax[1, 2].scatter(p, np.abs(r), s=8, alpha=.4, color="#dd6b20"); ax[1, 2].set(xlabel="Predicted", ylabel="|Residual|", title="Heteroscedasticity check")
-    plt.tight_layout(); plt.savefig(EVAL / "residual_analysis.png", dpi=130); plt.close()
+    plt.tight_layout(); plt.savefig((out or EVAL) / "residual_analysis.png", dpi=130); plt.close()
 
 
 # ----------------------------------------------------------------------------- main
@@ -212,6 +225,7 @@ def next_version() -> int:
 
 
 def main(trials: int, folds: int):
+    """SYNTHETIC-data training (unchanged). Real-data training lives in train_real.py and is selected with --data real."""
     t0 = time.time()
     EVAL.mkdir(parents=True, exist_ok=True)
     df, source = load_or_generate()
@@ -328,7 +342,7 @@ def main(trials: int, folds: int):
                   "explainer_name": exp_name, "explainer_pipeline": exp_pipe, "feature_names": list(Xt.columns)}
         mp = ARTIFACT_DIR / f"model_v{version}.joblib"
         joblib.dump(bundle, mp, compress=3)
-        meta = {"version": version, "trained_at": datetime.now(timezone.utc).isoformat(), "data_source": source, "cleaning": clean_info,
+        meta = {"version": version, "trained_at": datetime.now(UTC).isoformat(), "data_source": source, "cleaning": clean_info,
                 "best_model": best_name, "selection_criterion": "lowest 5-fold CV RMSE on training split", "explainer_model": exp_name,
                 "n_train": len(X_tr), "n_test": len(X_te), "cv_folds": folds, "optuna_trials": trials,
                 "metrics_test": {k.replace("test_", ""): float(v) for k, v in tbl.loc[best_name].items() if k.startswith("test_")},
@@ -352,8 +366,19 @@ def main(trials: int, folds: int):
 
 
 if __name__ == "__main__":
-    ap = argparse.ArgumentParser()
+    ap = argparse.ArgumentParser(description="Train the crop-yield model on synthetic (default) or real district-level data.")
+    ap.add_argument("--data", choices=["synthetic", "real"], default=os.environ.get("CROPAI_DATA_MODE", "synthetic"),
+                    help="dataset mode (env CROPAI_DATA_MODE). 'real' needs data/real/processed/ (see docs/real-data.md)")
     ap.add_argument("--trials", type=int, default=15)
     ap.add_argument("--folds", type=int, default=5)
+    ap.add_argument("--models", nargs="*", help="(real mode) subset of models to train, e.g. --models Ridge LightGBM CatBoost")
+    ap.add_argument("--final-fit", choices=["train", "train_val", "all"], help="(real mode) data the DEPLOYED model is fitted on")
     a = ap.parse_args()
-    main(a.trials, a.folds)
+    if a.data == "real":
+        from .train_real import main as real_main
+        try:
+            real_main(a.trials, a.models, a.final_fit)
+        except FileNotFoundError as e:  # no processed real dataset yet: say how to build it instead of silently using synthetic data
+            raise SystemExit(f"\nERROR: {e}\nThe synthetic dataset is NOT used as a fallback in real mode.")
+    else:
+        main(a.trials, a.folds)

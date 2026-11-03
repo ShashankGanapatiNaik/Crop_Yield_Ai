@@ -17,6 +17,10 @@ export default function ConditionsForm({ form, setForm, errors, meta, hideCrop }
   const [place, setPlace] = useState<Place | null>(null)
   const set = (k: keyof FormState) => (v: string) => setForm({ ...form, [k]: v })
   const allowed = meta.crops.find((c) => c.name === form.crop)?.seasons ?? meta.seasons
+  const used = meta.input_schema?.used
+  const show = (k: string) => !used || used.includes(k)           // no schema (older API) -> show everything
+  const real = meta.data_mode === 'real'
+  const districts = (real && meta.districts?.[form.region]) || []
 
   const setCrop = (crop: string) => {
     const seasons = meta.crops.find((c) => c.name === crop)?.seasons ?? meta.seasons
@@ -47,19 +51,33 @@ export default function ConditionsForm({ form, setForm, errors, meta, hideCrop }
     <div className="space-y-5">
       <Section title={t('form.s_field')}>
         {!hideCrop && <SelField label={t('form.crop')} value={form.crop} options={meta.crops.map((c) => c.name)} onChange={setCrop} error={!!errors.crop} />}
-        <SelField label={t('form.region')} value={form.region} options={meta.regions} onChange={set('region')} />
+        <SelField label={t('form.region')} value={form.region} options={meta.regions} onChange={(v) => setForm({ ...form, region: v, district: '' })} />
         <SelField label={t('form.season')} value={form.season} options={meta.seasons} onChange={set('season')} disabledOptions={meta.seasons.filter((s) => !allowed.includes(s))} />
+        {real && districts.length > 0 && (
+          <div>
+            <label htmlFor="district" className="mb-1 block text-sm font-semibold">{t('data.district')}</label>
+            <select id="district" className="field-input capitalize" value={form.district} onChange={(e) => set('district')(e.target.value)}>
+              <option value="">{t('data.district_auto')}</option>
+              {districts.map((d) => <option key={d} value={d}>{d}</option>)}
+            </select>
+            <p className="mt-1 min-h-[1.1rem] text-xs text-muted">{t('data.district_help')}</p>
+          </div>
+        )}
         <NumField k="area_ha" label={t('form.area_ha')} value={form.area_ha} onChange={set('area_ha')} errors={errors} />
-        <NumField k="year" label={t('form.year')} value={form.year} onChange={set('year')} errors={errors} />
+        {show('year') && <NumField k="year" label={t('form.year')} value={form.year} onChange={set('year')} errors={errors} />}
       </Section>
-      <Section title={t('form.s_soil')}>
-        <SelField label={t('form.soil_type')} value={form.soil_type} options={meta.soil_types} onChange={set('soil_type')} />
-        <NumField k="ph" label={t('form.ph')} value={form.ph} onChange={set('ph')} errors={errors} />
-        <span className="hidden lg:block" />
-        <NumField k="nitrogen" label={t('form.nitrogen')} value={form.nitrogen} onChange={set('nitrogen')} errors={errors} />
-        <NumField k="phosphorus" label={t('form.phosphorus')} value={form.phosphorus} onChange={set('phosphorus')} errors={errors} />
-        <NumField k="potassium" label={t('form.potassium')} value={form.potassium} onChange={set('potassium')} errors={errors} />
-      </Section>
+      {show('nitrogen') ? (
+        <Section title={t('form.s_soil')}>
+          {show('soil_type') && <SelField label={t('form.soil_type')} value={form.soil_type} options={meta.soil_types} onChange={set('soil_type')} />}
+          <NumField k="ph" label={t('form.ph')} value={form.ph} onChange={set('ph')} errors={errors} />
+          <span className="hidden lg:block" />
+          <NumField k="nitrogen" label={t('form.nitrogen')} value={form.nitrogen} onChange={set('nitrogen')} errors={errors} />
+          <NumField k="phosphorus" label={t('form.phosphorus')} value={form.phosphorus} onChange={set('phosphorus')} errors={errors} />
+          <NumField k="potassium" label={t('form.potassium')} value={form.potassium} onChange={set('potassium')} errors={errors} />
+        </Section>
+      ) : (
+        <p className="panel border-info/40 p-4 text-sm text-ink" role="note">{t('data.soil_from_district')}</p>
+      )}
       <Section title={t('form.s_water')}>
         <div className="sm:col-span-2 lg:col-span-3">
           <div className="mb-3 flex flex-wrap items-center gap-2">
@@ -72,9 +90,9 @@ export default function ConditionsForm({ form, setForm, errors, meta, hideCrop }
         </div>
         <NumField k="rainfall_mm" label={t('form.rainfall_mm')} value={form.rainfall_mm} onChange={set('rainfall_mm')} errors={errors} hint={t('form.rain_hint')} />
         <NumField k="temperature_c" label={t('form.temperature_c')} value={form.temperature_c} onChange={set('temperature_c')} errors={errors} />
-        <NumField k="humidity_pct" label={t('form.humidity_pct')} value={form.humidity_pct} onChange={set('humidity_pct')} errors={errors} />
-        <SelField label={t('form.irrigation')} value={form.irrigation} options={meta.irrigation} onChange={set('irrigation')} />
-        <NumField k="fertilizer_kg_ha" label={t('form.fertilizer_kg_ha')} value={form.fertilizer_kg_ha} onChange={set('fertilizer_kg_ha')} errors={errors} />
+        {show('humidity_pct') && <NumField k="humidity_pct" label={t('form.humidity_pct')} value={form.humidity_pct} onChange={set('humidity_pct')} errors={errors} />}
+        {show('irrigation') && <SelField label={t('form.irrigation')} value={form.irrigation} options={meta.irrigation} onChange={set('irrigation')} />}
+        {show('fertilizer_kg_ha') && <NumField k="fertilizer_kg_ha" label={t('form.fertilizer_kg_ha')} value={form.fertilizer_kg_ha} onChange={set('fertilizer_kg_ha')} errors={errors} />}
       </Section>
       {picker && <LocationPicker initial={place ? { lat: place.lat, lon: place.lon } : null} autoLocate={picker.auto} onClose={() => setPicker(null)} onConfirm={applyLocation} />}
     </div>

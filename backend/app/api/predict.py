@@ -1,4 +1,5 @@
 import logging
+from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import FileResponse, Response
@@ -10,7 +11,6 @@ from ml.src.config import (
     ECONOMICS,
     IRRIGATION,
     REGIONS,
-    REPORT_DIR,
     SEASONS,
     SOILS,
 )
@@ -23,6 +23,15 @@ from ..models.orm import Prediction, User
 from ..schemas import CompareIn, PredictIn, PredictionOut, WhatIfIn
 from ..services import geocode, pdf_report, weather
 from ..services.model_service import ModelService, get_model_service
+
+
+def get_optional_service() -> ModelService | None:
+    """For public reference endpoints: fall back to static lists when no model is trained yet."""
+    try:
+        return get_model_service()
+    except FileNotFoundError:
+        return None
+
 
 log = logging.getLogger("api")
 router = APIRouter(tags=["prediction"])
@@ -90,12 +99,20 @@ def get_weather(request: Request, lat: float = Query(ge=-90, le=90), lon: float 
         raise HTTPException(502, str(e)) from e
 
 
+def _match_region(place: dict) -> dict:
+    """Map the place's state onto the regions the ACTIVE model knows (synthetic: 10 states; real: all states in the data)."""
+    svc = get_optional_service()
+    if svc and place.get("state"):
+        place = {**place, "region": svc.canonical("region", place["state"]) or place.get("region") if svc.data_mode == "synthetic" else svc.canonical("region", place["state"])}
+    return place
+
+
 @router.get("/geocode/reverse")
 @limiter.limit("60/minute")
 def geocode_reverse(request: Request, lat: float = Query(ge=-90, le=90), lon: float = Query(ge=-180, le=180)):
     """Exact place name for a map point."""
     try:
-        return geocode.reverse(lat, lon)
+        return _match_region(geocode.reverse(lat, lon))
     except geocode.GeocodeError as e:
         raise HTTPException(502, str(e)) from e
 
@@ -105,7 +122,7 @@ def geocode_reverse(request: Request, lat: float = Query(ge=-90, le=90), lon: fl
 def geocode_search(request: Request, q: str = Query(min_length=2, max_length=120)):
     """Search a place by name (India)."""
     try:
-        return {"results": geocode.search(q)}
+        return {"results": [_match_region(p) for p in geocode.search(q)]}
     except geocode.GeocodeError as e:
         raise HTTPException(502, str(e)) from e
 
@@ -145,17 +162,26 @@ def report(pid: int, db: Session = Depends(get_db), user: User = Depends(get_cur
 
 
 @router.get("/crops")
-def crops():
-    return {"crops": [{"name": c, "seasons": p["seasons"], "optimum_ph": p["ph"], "optimum_temp_c": p["temp"][0], "optimum_water_mm": p["rain"][0],
-                       **ECONOMICS[c]} for c, p in CROP_PROFILE.items()],
-            "regions": REGIONS, "seasons": SEASONS, "soil_types": SOILS, "irrigation": IRRIGATION}
+def crops(svc: ModelService | None = Depends(get_optional_service)):
+    """Reference lists for the form. Reflects the ACTIVE model: a district-level model has no soil-type or irrigation inputs."""
+    names = svc.categories("crop") if svc else list(CROP_PROFILE)
+    out = {"crops": [{"name": c, "seasons": CROP_PROFILE[c]["seasons"], "optimum_ph": CROP_PROFILE[c]["ph"], "optimum_temp_c": CROP_PROFILE[c]["temp"][0],
+                      "optimum_water_mm": CROP_PROFILE[c]["rain"][0], **ECONOMICS[c]} for c in names if c in CROP_PROFILE],
+           "regions": svc.categories("region") if svc else REGIONS, "seasons": svc.categories("season") if svc else SEASONS,
+           "soil_types": svc.categories("soil_type") if svc else SOILS, "irrigation": svc.categories("irrigation") if svc else IRRIGATION}
+    if svc:
+        out.update(svc.describe())
+    else:
+        out.update(data_mode="synthetic", model_name=None, input_schema=None, provenance=None, districts=None)
+    return out
 
 
 @router.get("/model-info")
 def model_info(svc: ModelService = Depends(get_model_service)):
     m = svc.meta
     keys = ["version", "trained_at", "data_source", "best_model", "selection_criterion", "explainer_model", "n_train", "n_test", "cv_folds",
-            "optuna_trials", "metrics_test", "metrics_cv", "comparison", "per_crop_metrics", "uncertainty", "global_importance", "residual_summary", "cleaning"]
+            "optuna_trials", "metrics_test", "metrics_cv", "comparison", "per_crop_metrics", "uncertainty", "global_importance", "residual_summary", "cleaning",
+            "data_mode", "name", "provenance", "input_schema", "split", "metrics_val", "per_region_metrics", "synthetic_reference", "final_fit"]
     return {k: m[k] for k in keys if k in m}
 
 
@@ -163,9 +189,11 @@ PLOTS = {"model_comparison", "residual_analysis", "shap_summary_beeswarm", "shap
 
 
 @router.get("/model-plots/{name}")
-def model_plot(name: str):
-    """Serve training diagnostics (whitelisted names only, so no path traversal is possible)."""
-    f = REPORT_DIR / "eval" / f"{name}.png"
+def model_plot(name: str, svc: ModelService | None = Depends(get_optional_service)):
+    """Serve training diagnostics of the ACTIVE model (whitelisted names only, so no path traversal is possible)."""
+    root = Path(get_settings().reports_dir)
+    folder = root / "real" / svc.name if svc and svc.data_mode == "real" else root / "eval"
+    f = folder / f"{name}.png"
     if name not in PLOTS or not f.exists():
         raise HTTPException(404, "Plot not found")
     return FileResponse(f, media_type="image/png", headers={"Cache-Control": "public, max-age=3600"})

@@ -42,6 +42,9 @@ export default function WhatIf() {
   if (!base || !vals) return (<><PageTitle title={t('whatif.title')} /><div className="panel p-8 text-center"><p className="text-muted">{t('whatif.need_base')}</p><Link to="/predict" className="btn btn-primary mt-4">{t('nav.predict')}</Link></div></>)
 
   const change = (k: NumKey, v: number) => { setFocus(k); setVals({ ...vals, [k]: v }) }
+  const used = meta.data?.input_schema?.used
+  // only fields the active model uses AND that exist in the saved inputs (they may come from a different model)
+  const sliders = meta.data ? SLIDERS.filter((k) => (!used || used.includes(k)) && vals[k] !== undefined) : []
   const d = res?.delta_yield_t_ha ?? 0
   const curve = res?.sweep?.points.map((p) => ({ x: p.x, y: p.yield_t_ha, band: [p.lower_t_ha, p.upper_t_ha] as [number, number] }))
 
@@ -53,7 +56,7 @@ export default function WhatIf() {
       {err && <ErrorBox message={err} />}
       <div className="grid gap-6 lg:grid-cols-5">
         <section className="panel space-y-4 p-5 lg:col-span-2" aria-label="Controls">
-          {SLIDERS.map((k) => {
+          {sliders.map((k) => {
             const s = NUM_SPECS[k]
             const changed = vals[k] !== base[k]
             return (
@@ -67,7 +70,7 @@ export default function WhatIf() {
               </div>
             )
           })}
-          {meta.data && <SelField label={t('form.irrigation')} value={vals.irrigation} options={meta.data.irrigation} onChange={(v) => setVals({ ...vals, irrigation: v })} />}
+          {meta.data && (!used || used.includes('irrigation')) && <SelField label={t('form.irrigation')} value={vals.irrigation} options={meta.data.irrigation} onChange={(v) => setVals({ ...vals, irrigation: v })} />}
         </section>
 
         <section className="space-y-6 lg:col-span-3" aria-live="polite">

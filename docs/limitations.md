@@ -3,7 +3,8 @@
 ## Limitations (be upfront about these in your viva)
 
 **Data**
-1. **Synthetic training data.** The model has learned the simulator, not real farms. Reported R² (0.94) is optimistic; real yield data typically gives R² 0.5-0.8 because of unmeasured factors (variety, sowing date, pests, management).
+1. **Synthetic training data (shipped model).** A real-data pipeline now exists (see [real-data.md](real-data.md)) but no real model is shipped; until you build one, everything below about synthetic data applies.
+   Original note: **Synthetic training data.** The model has learned the simulator, not real farms. Reported R² (0.94) is optimistic; real yield data typically gives R² 0.5-0.8 because of unmeasured factors (variety, sowing date, pests, management).
 2. **Random split, not temporal or spatial.** The test set shares years and regions with training. Performance on a future season or a new district is untested. A leave-one-year-out or leave-one-state-out evaluation is needed.
 3. **Year extrapolation.** Trees cannot extrapolate: predictions for years after 2023 reuse the 2023 trend level.
 4. **Sparse optimum region.** High-yield, ideal-condition fields are rare in the data, so estimates there are less certain (one reason intervals use relative error).

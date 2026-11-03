@@ -3,6 +3,7 @@ import json
 import logging
 import re
 import threading
+from datetime import datetime
 from pathlib import Path
 
 import joblib
@@ -11,7 +12,8 @@ import pandas as pd
 import shap
 
 from ml.src import explain
-from ml.src.config import CROP_PROFILE, ECONOMICS, IRRIGATION, RAW_FEATURES
+from ml.src.config import CROP_PROFILE, CROPS, ECONOMICS, IRRIGATION, RAW_FEATURES, REGIONS, SEASONS, SOILS
+from ml.src.data_cleaning import normalize_district
 from ml.src.uncertainty import interval
 
 from ..core.config import get_settings
@@ -27,29 +29,174 @@ LABELS = {"crop": "Crop type", "region": "Region", "season": "Season", "soil_typ
           "aridity_index": "Aridity index", "heat_humidity_index": "Heat-humidity index", "n_p_ratio": "N:P ratio",
           "n_k_ratio": "N:K ratio", "p_k_ratio": "P:K ratio", "npk_total": "Total NPK + fertiliser",
           "fert_per_soil_n": "Fertiliser vs soil N", "ph_deviation": "pH deviation from 6.8",
-          "season_ord": "Season code", "log_area": "Field area (log)", "years_since_2000": "Years since 2000"}
+          "season_ord": "Season code", "log_area": "Field area (log)", "years_since_2000": "Years since 2000",
+          "soil_ph": "Soil pH (district estimate)", "soil_organic_carbon": "Soil organic carbon (district estimate)", "soil_sand_pct": "Soil sand % (district estimate)",
+          "soil_clay_pct": "Soil clay % (district estimate)", "temp_max_c": "Mean daily maximum temperature", "latitude": "Latitude (district)", "longitude": "Longitude (district)",
+          "heat_stress_c": "Heat stress (above 35 C)", "soil_texture_ratio": "Sand : clay ratio"}
+SYNTH_CATEGORIES = {"crop": CROPS, "region": REGIONS, "season": SEASONS, "soil_type": SOILS, "irrigation": IRRIGATION}
+CAT_FIELDS = ["crop", "region", "season", "soil_type", "irrigation"]
+
+
+class InputError(Exception):
+    """Invalid request content that Pydantic cannot judge because it depends on the ACTIVE model (categories, required inputs)."""
+
+    def __init__(self, errors: list[dict]):
+        super().__init__("; ".join(e["message"] for e in errors))
+        self.errors = errors
 
 
 class ModelService:
     def __init__(self, model_dir: str | None = None, version: str | None = None):
+        """version: 'latest' (highest model_vN, synthetic), N, 'real_latest', or 'real_district_vN'."""
         s = get_settings()
         self.dir = Path(model_dir or s.model_dir)
-        want = version or s.model_version
-        files = {int(m.group(1)): f for f in self.dir.glob("model_v*.joblib") if (m := re.match(r"model_v(\d+)\.joblib", f.name))}
-        if not files:
-            raise FileNotFoundError(f"No model_v*.joblib in {self.dir}. Run `python -m ml.src.train` first.")
-        v = max(files) if want == "latest" else int(want)
-        self.version = v
-        self.bundle = joblib.load(files[v])
-        self.meta = json.loads((self.dir / f"model_v{v}.json").read_text())
-        self.explainer = shap.TreeExplainer(self.bundle["explainer_pipeline"][-1])
+        stem = self._resolve_stem(str(version or s.model_version))
+        self.bundle = joblib.load(self.dir / f"{stem}.joblib")
+        self.meta = json.loads((self.dir / f"{stem}.json").read_text())
+        b = self.bundle
+        self.name = b.get("name", stem)
+        self.version = int(b["version"])
+        self.data_mode = b.get("data_mode", "synthetic")
+        self.raw_features = list(b.get("raw_features", RAW_FEATURES))
+        self.categorical = b.get("categorical")  # None -> synthetic default inside ml.src.explain
+        schema = self.meta.get("input_schema")
+        if schema:
+            self.required, self.used = list(schema["required"]), list(schema["used"])
+        else:  # synthetic models: every field except `year` (which defaults to the current year) is required
+            self.required, self.used = [f for f in RAW_FEATURES if f != "year"], list(RAW_FEATURES)
+        self.explainer = shap.TreeExplainer(b["explainer_pipeline"][-1])
         self._lock = threading.Lock()
-        log.info("Loaded model v%s (%s), explainer=%s", v, self.bundle["model_name"], self.bundle["explainer_name"])
+        log.info("Loaded %s [%s] (%s), explainer=%s", self.name, self.data_mode, b["model_name"], b["explainer_name"])
+
+    def _resolve_stem(self, want: str) -> str:
+        def newest(prefix: str) -> str:
+            nums = {int(m.group(1)) for f in self.dir.glob(f"{prefix}*.joblib") if (m := re.match(rf"{prefix}(\d+)\.joblib", f.name))}
+            if not nums:
+                raise FileNotFoundError(f"No {prefix}*.joblib in {self.dir}. Train a model first (python -m ml.src.train [--data real]).")
+            return f"{prefix}{max(nums)}"
+        if want == "latest":
+            return newest("model_v")
+        if want == "real_latest":
+            return newest("real_district_v")
+        if re.fullmatch(r"real_district_v\d+", want):
+            return want
+        if want.isdigit():
+            return f"model_v{int(want)}"
+        raise ValueError(f"MODEL_VERSION={want!r}: use 'latest', a number, 'real_latest' or 'real_district_vN'")
+
+    # ---- input handling (depends on the active model)
+    def categories(self, field: str) -> list[str]:
+        cats = self.meta.get("categories")
+        if cats is not None:  # the model's own categories; a field it does not use (e.g. irrigation in a district model) is simply empty
+            return list(cats.get(field, []))
+        return list(SYNTH_CATEGORIES.get(field, []))  # minimal/test metadata without a category table
+
+    def canonical(self, field: str, value):
+        for c in self.categories(field):
+            if c.lower() == str(value).lower():
+                return c
+        return None
+
+    def prepare(self, inputs: dict, need_crop: bool = True) -> tuple[dict, dict]:
+        """Validate against THIS model, fill defaults, resolve district-level attributes. Returns (row, notes). Idempotent."""
+        row = {k: v for k, v in inputs.items() if v is not None}
+        errs: list[dict] = []
+        for f in CAT_FIELDS:
+            if f in row and (f in self.used or f == "crop"):
+                c = self.canonical(f, row[f])
+                if c is None:
+                    errs.append({"field": f, "message": f"unknown {f} '{row[f]}'. Allowed: {', '.join(self.categories(f))}"})
+                else:
+                    row[f] = c
+        for f in self.required:
+            if f not in row and (f != "crop" or need_crop):
+                errs.append({"field": f, "message": f"'{f}' is required by the active model ({self.name})"})
+        if errs:
+            raise InputError(errs)
+        notes = {"estimated_inputs": [], "data_notes": [], "district": None}
+        if "year" in self.used:
+            row.setdefault("year", datetime.now().year)
+        if "area_ha" not in row:
+            row["area_ha"] = 1.0
+            if self.data_mode == "real":
+                notes["data_notes"].append("Field area not given: totals and profit are shown per 1 ha.")
+        if self.data_mode == "real":
+            self._resolve_district(row, notes)
+        self._range_warnings(row, notes)
+        return row, notes
+
+    def _range_warnings(self, row: dict, notes: dict) -> None:
+        """Tree models cannot extrapolate: flag values the user typed that lie outside what the model saw for THIS crop and season
+        (falls back to the pooled range when the group is small or unknown)."""
+        label = {"rainfall_mm": "Rainfall", "temperature_c": "Temperature", "humidity_pct": "Humidity", "ph": "Soil pH", "soil_ph": "Soil pH",
+                 "nitrogen": "Nitrogen", "phosphorus": "Phosphorus", "potassium": "Potassium", "fertilizer_kg_ha": "Fertiliser"}
+        est = set(notes.get("estimated_inputs", []))
+        grp = (self.meta.get("feature_ranges_by_group") or {}).get(f"{row.get('crop')}|{row.get('season')}", {})
+        for f, pooled in (self.meta.get("feature_ranges") or {}).items():
+            v = row.get(f)
+            if f not in label or v is None or f in est:
+                continue
+            r, where = (grp[f], f" for {row['crop']} in {row['season']}") if f in grp else (pooled, "")
+            if v < r["min"] or v > r["max"]:
+                notes["data_notes"].append(f"{label[f]} {v:g} is outside the range the model was trained on{where} ({r['min']:.0f} to {r['max']:.0f}): treat this estimate with extra caution.")
+
+    def _resolve_district(self, row: dict, notes: dict) -> None:
+        static = [c for c in ("soil_ph", "soil_organic_carbon", "soil_sand_pct", "soil_clay_pct", "latitude", "longitude") if c in self.raw_features]
+        dtab, rtab = self.bundle.get("district_table", {}), self.bundle.get("region_table", {})
+        region, dname = row["region"], normalize_district(row.get("district")) if row.get("district") else None
+        src, label = None, None
+        if dname:
+            src = dtab.get(f"{region}|{dname}")
+            if src is None:
+                ex = ", ".join(list(self.meta.get("districts", {}).get(region, []))[:5])
+                raise InputError([{"field": "district", "message": f"district '{row['district']}' not found for {region} in the training data. Examples: {ex}"}])
+            label = f"{dname.title()} district"
+        elif row.get("latitude") is not None and row.get("longitude") is not None:
+            best = None
+            for key, v in dtab.items():
+                if key.startswith(f"{region}|") and v.get("latitude") is not None:
+                    d = (v["latitude"] - row["latitude"]) ** 2 + ((v["longitude"] - row["longitude"]) * 0.95) ** 2
+                    if best is None or d < best[0]:
+                        best = (d, key, v)
+            if best:
+                src, label, dname = best[2], f"nearest district ({best[1].split('|')[1].title()})", best[1].split("|")[1]
+        if src is None:
+            src, label = rtab.get(region, {}), f"{region} state median"
+        used_est = []
+        for c in static:
+            if row.get(c) is None and src.get(c) is not None:
+                row[c] = src[c]
+                used_est.append(c)
+        notes["district"] = dname
+        notes["estimated_inputs"] = used_est
+        if used_est:
+            notes["data_notes"].append(f"Soil and location values come from {label}: a regional estimate, not a measurement of your field.")
+        notes["data_notes"].append("This model predicts a district-level average yield from government statistics; an individual farm can differ.")
+
+    def canonical_crops(self, crops: list[str] | None) -> list[str] | None:
+        if crops is None:
+            return None
+        out, errs = [], []
+        for c in crops:
+            k = self.canonical("crop", c)
+            (out if k else errs).append(k or {"field": "crops", "message": f"unknown crop '{c}'. Allowed: {', '.join(self.categories('crop'))}"})
+        if errs:
+            raise InputError(errs)
+        return out
+
+    def describe(self) -> dict:
+        """What the UI needs to build the right form for this model."""
+        return {"data_mode": self.data_mode, "model_name": self.name, "input_schema": {"required": self.required, "used": self.used,
+                "optional": [f for f in self.used if f not in self.required]}, "provenance": self.meta.get("provenance"),
+                "districts": self.meta.get("districts") if self.data_mode == "real" else None}
 
     # ---- core prediction
-    @staticmethod
-    def frame(rows: list[dict]) -> pd.DataFrame:
-        return pd.DataFrame(rows)[RAW_FEATURES]
+    def frame(self, rows: list[dict]) -> pd.DataFrame:
+        df = pd.DataFrame(rows)
+        for c in self.raw_features:
+            if c not in df.columns:
+                df[c] = np.nan  # optional numeric input not supplied: the pipeline imputes it (per-crop median)
+        return df[self.raw_features]
 
     def predict_frame(self, df: pd.DataFrame) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
         b = self.bundle
@@ -66,7 +213,7 @@ class ModelService:
 
     def explain_row(self, row: pd.DataFrame, top: int = 5) -> tuple[float, list[dict]]:
         with self._lock:
-            base, contrib = explain.local_explanation(self.explainer, self.bundle["explainer_pipeline"], row)
+            base, contrib = explain.local_explanation(self.explainer, self.bundle["explainer_pipeline"], row, self.categorical)
             engineered = self.bundle["explainer_pipeline"][0].transform(row).iloc[0]
         items = sorted(contrib.items(), key=lambda kv: -abs(kv[1]))[:top]
         out = []
@@ -78,6 +225,8 @@ class ModelService:
 
     # ---- levers: ask the model what each candidate improvement is worth
     def levers(self, inputs: dict, crop: str, base_yield: float) -> dict:
+        if "irrigation" not in self.raw_features:  # district-level models cannot simulate farm-level irrigation / fertiliser / pH changes
+            return {}
         variants, keys = [], []
         row = {**inputs, "crop": crop}
 
@@ -96,7 +245,9 @@ class ModelService:
 
     # ---- public high-level operations
     def full_prediction(self, inputs: dict, crop: str, with_alternatives: bool = True) -> dict:
-        row = {**inputs, "crop": crop}
+        row, notes = self.prepare({**inputs, "crop": crop})
+        crop = row["crop"]
+        inputs = {k: v for k, v in row.items() if k != "crop"}
         df = self.frame([row])
         p, lo, hi = (float(x[0]) for x in self.predict_frame(df))
         area = inputs["area_ha"]
@@ -105,13 +256,16 @@ class ModelService:
         alternatives = self.compare(inputs, None)["results"] if with_alternatives else None
         levers = self.levers(inputs, crop, p)
         recs = rec.generate(inputs, crop, {"yield": p, "lower": lo, "upper": hi, **eco}, levers, alternatives,
-                            self.meta["benchmarks"].get(crop))
-        return {"crop": crop, "inputs": row, "predicted_yield_t_ha": round(p, 3), "lower_t_ha": round(lo, 3), "upper_t_ha": round(hi, 3),
+                            self.meta["benchmarks"].get(crop), estimated=notes["estimated_inputs"],
+                            real_ref=(self.meta.get("feature_ranges_by_group") or {}).get(f"{crop}|{row['season']}") if self.data_mode == "real" else None)
+        return {"model_name": self.name, "data_mode": self.data_mode, "estimated_inputs": notes["estimated_inputs"], "data_notes": notes["data_notes"],
+                "crop": crop, "inputs": row, "predicted_yield_t_ha": round(p, 3), "lower_t_ha": round(lo, 3), "upper_t_ha": round(hi, 3),
                 "confidence_level": 0.8, "total_production_t": round(p * area, 2), "economics": eco, "base_value_t_ha": base,
                 "top_factors": factors, "recommendations": recs, "model_version": self.version}
 
     def compare(self, inputs: dict, crops: list[str] | None) -> dict:
-        crops = crops or list(CROP_PROFILE)
+        inputs, _ = self.prepare(inputs, need_crop=False)
+        crops = self.canonical_crops(crops) or [c for c in CROP_PROFILE if c in self.categories("crop")]
         df = self.frame([{**inputs, "crop": c} for c in crops])
         p, lo, hi = self.predict_frame(df)
         out = []
@@ -125,8 +279,10 @@ class ModelService:
         return {"results": out, "best_crop": next((r["crop"] for r in out if r["season_suitable"]), out[0]["crop"])}
 
     def what_if(self, base_in: dict, crop: str, changes: dict, sweep: dict | None) -> dict:
-        base = {k: v for k, v in base_in.items() if k != "crop"}
-        scen = {**base, **{k: v for k, v in changes.items() if k in base}}
+        base, _ = self.prepare({**base_in, "crop": crop})
+        crop = base.pop("crop")
+        scen, _ = self.prepare({**base, **{k: v for k, v in changes.items() if k in base or k in self.raw_features}, "crop": crop})
+        scen.pop("crop")
         df = self.frame([{**base, "crop": crop}, {**scen, "crop": crop}])
         p, lo, hi = self.predict_frame(df)
         area = base["area_ha"]

@@ -16,7 +16,7 @@ from .core.logging import setup_logging
 from .core.security import hash_password
 from .db import Base, SessionLocal, engine
 from .models.orm import ApiUsage, User
-from .services.model_service import get_model_service
+from .services.model_service import InputError, get_model_service
 
 setup_logging()
 log = logging.getLogger("app")
@@ -58,6 +58,10 @@ def create_app() -> FastAPI:
     async def validation_handler(request: Request, exc: RequestValidationError):
         errs = [{"field": ".".join(str(x) for x in e["loc"][1:]), "message": e["msg"]} for e in exc.errors()]
         return JSONResponse(status_code=422, content={"detail": "Validation failed", "errors": errs})
+
+    @app.exception_handler(InputError)
+    async def input_error_handler(request: Request, exc: InputError):
+        return JSONResponse(status_code=422, content={"detail": "Validation failed", "errors": exc.errors})
 
     @app.on_event("startup")
     def startup():

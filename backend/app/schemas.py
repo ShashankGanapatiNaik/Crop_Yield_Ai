@@ -1,9 +1,7 @@
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
-
-from ml.src.config import CROPS, IRRIGATION, REGIONS, SEASONS, SOILS
+from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
 
 class RegisterIn(BaseModel):
@@ -32,66 +30,33 @@ class TokenOut(BaseModel):
 
 
 class FieldInputs(BaseModel):
-    """Growing conditions. Every numeric field is range-validated to agronomically plausible values."""
+    """Growing conditions. Numeric fields are range-validated here; which fields are REQUIRED and which categories are
+    allowed depends on the active model (synthetic farm-level vs real district-level) and is enforced by the model service."""
     region: str
     season: str
-    soil_type: str
-    irrigation: str
-    ph: float = Field(ge=3.5, le=10)
-    nitrogen: float = Field(ge=0, le=600, description="Soil available N, kg/ha")
-    phosphorus: float = Field(ge=0, le=250, description="Soil available P, kg/ha")
-    potassium: float = Field(ge=0, le=800, description="Soil available K, kg/ha")
-    rainfall_mm: float = Field(ge=0, le=6000, description="Seasonal rainfall, mm")
-    temperature_c: float = Field(ge=-5, le=50, description="Mean season temperature, deg C")
-    humidity_pct: float = Field(ge=0, le=100)
-    area_ha: float = Field(gt=0, le=5000)
-    fertilizer_kg_ha: float = Field(ge=0, le=1000)
+    soil_type: str | None = None
+    irrigation: str | None = None
+    district: str | None = Field(default=None, max_length=80, description="District (real-data model): selects district soil and location estimates")
+    latitude: float | None = Field(default=None, ge=-90, le=90)
+    longitude: float | None = Field(default=None, ge=-180, le=180)
+    ph: float | None = Field(default=None, ge=3.5, le=10)
+    nitrogen: float | None = Field(default=None, ge=0, le=600, description="Soil available N, kg/ha")
+    phosphorus: float | None = Field(default=None, ge=0, le=250, description="Soil available P, kg/ha")
+    potassium: float | None = Field(default=None, ge=0, le=800, description="Soil available K, kg/ha")
+    rainfall_mm: float | None = Field(default=None, ge=0, le=6000, description="Seasonal rainfall, mm")
+    temperature_c: float | None = Field(default=None, ge=-5, le=50, description="Mean season temperature, deg C")
+    humidity_pct: float | None = Field(default=None, ge=0, le=100)
+    area_ha: float | None = Field(default=None, gt=0, le=5000)
+    fertilizer_kg_ha: float | None = Field(default=None, ge=0, le=1000)
     year: int = Field(default_factory=lambda: datetime.now().year, ge=1990, le=2100)
-
-    @field_validator("region")
-    @classmethod
-    def _region(cls, v):
-        return _in(v, REGIONS, "region")
-
-    @field_validator("season")
-    @classmethod
-    def _season(cls, v):
-        return _in(v, SEASONS, "season")
-
-    @field_validator("soil_type")
-    @classmethod
-    def _soil(cls, v):
-        return _in(v, SOILS, "soil_type")
-
-    @field_validator("irrigation")
-    @classmethod
-    def _irr(cls, v):
-        return _in(v, IRRIGATION, "irrigation")
-
-
-def _in(v: str, allowed: list[str], name: str) -> str:
-    for a in allowed:
-        if a.lower() == str(v).lower():
-            return a
-    raise ValueError(f"unknown {name} '{v}'. Allowed: {', '.join(allowed)}")
 
 
 class PredictIn(FieldInputs):
     crop: str
 
-    @field_validator("crop")
-    @classmethod
-    def _crop(cls, v):
-        return _in(v, CROPS, "crop")
-
 
 class CompareIn(FieldInputs):
-    crops: list[str] | None = Field(default=None, description="Defaults to all crops")
-
-    @field_validator("crops")
-    @classmethod
-    def _crops(cls, v):
-        return None if v is None else [_in(c, CROPS, "crop") for c in v]
+    crops: list[str] | None = Field(default=None, description="Defaults to all crops of the active model")
 
 
 class Sweep(BaseModel):
@@ -147,3 +112,7 @@ class PredictionOut(BaseModel):
     recommendations: list[Recommendation]
     model_version: int
     created_at: datetime | None = None
+    model_name: str | None = None
+    data_mode: str | None = None          # "synthetic" | "real"
+    estimated_inputs: list[str] = Field(default_factory=list)   # inputs filled from district-level estimates
+    data_notes: list[str] = Field(default_factory=list)

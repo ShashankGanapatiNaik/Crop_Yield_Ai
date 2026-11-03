@@ -25,64 +25,92 @@ def _nutrient_supply(inputs: dict) -> dict:
 
 def water_status(inputs: dict, crop: str) -> tuple[float, float, float]:
     opt, tol = CROP_PROFILE[crop]["rain"]
-    water = inputs["rainfall_mm"] + IRRIGATION_MM[inputs["irrigation"]] * 0.9
+    water = inputs["rainfall_mm"] + IRRIGATION_MM.get(inputs.get("irrigation"), 0) * 0.9  # unknown irrigation counts as none
     return water, opt, tol
 
 
 def generate(inputs: dict, crop: str, pred: dict, levers: dict | None = None, alternatives: list[dict] | None = None,
-             benchmark: dict | None = None) -> list[dict]:
+             benchmark: dict | None = None, estimated: list[str] | None = None, real_ref: dict | None = None) -> list[dict]:
     """pred = {'yield','lower','upper'}; levers = {name: gain_t_ha}; alternatives = compare-crops rows sorted by profit."""
     prof, levers, recs = CROP_PROFILE[crop], levers or {}, []
+    estimated = estimated or []
+    has_irrigation = "irrigation" in inputs
     gain = lambda k: round(levers[k], 3) if levers.get(k, 0) > 0.01 else None
 
     # ---- irrigation / water balance
-    water, w_opt, w_tol = water_status(inputs, crop)
-    deficit = w_opt - water
-    rain = inputs["rainfall_mm"]
-    excess_limit = RICE_WATERLOG_MM if crop == "Rice" else w_opt + 2.2 * w_tol  # paddy is a flooded crop and tolerates heavy rain
-    irr_gain = levers.get("irrigation") if "irrigation" in levers else None
-    if deficit > 0.6 * w_tol:
-        better = "Drip" if inputs["irrigation"] in ("Rainfed", "Canal") else "Sprinkler"
-        basis = (f"Using the rainfall you entered ({rain:.0f} mm for the season) plus irrigation, effective water is ~{water:.0f} mm against ~{w_opt:.0f} mm "
-                 f"typical for {crop}. ")
-        tip = " If your area is already getting good rain, enter the expected TOTAL rainfall for the whole season, not just recent rain."
-        if irr_gain is not None and irr_gain < SMALL_GAIN_T_HA:
-            recs.append(dict(category="irrigation", severity="info", title="Water is below the usual optimum, but the effect looks small",
-                             detail=basis + f"The model expects only about +{max(irr_gain, 0):.2f} t/ha from adding water here, so treat irrigation as optional." + tip,
-                             expected_gain_t_ha=gain("irrigation")))
+    # Real-data models: compare with what districts ACTUALLY experienced for this crop and season (not simulator constants).
+    ref = (real_ref or {}).get("rainfall_mm")
+    if ref and ref.get("p25") is not None:
+        rain, p25, p75, season = inputs["rainfall_mm"], ref["p25"], ref["p75"], inputs.get("season", "")
+        span = f"{p25:.0f}-{p75:.0f} mm"
+        if rain < p25:
+            recs.append(dict(category="irrigation", severity="info", title="Rainfall is below the typical range for this crop and season",
+                             detail=f"{rain:.0f} mm is lower than most district-seasons in the training data for {crop} in {season} (typical {span}). The model does not see irrigation, "
+                                    "and district yields also reflect canal and borewell water, so check your water source. Enter the expected TOTAL rainfall for the whole season, not just recent rain.",
+                             expected_gain_t_ha=None))
+        elif rain > 1.5 * p75:
+            recs.append(dict(category="irrigation", severity="warning", title="Rainfall is far above the typical range",
+                             detail=f"{rain:.0f} mm is well above the typical {span} seen for {crop} in {season}. Plan drainage and watch for waterlogging and disease.", expected_gain_t_ha=None))
         else:
-            sev = "critical" if deficit > 1.5 * w_tol else "warning"
-            recs.append(dict(category="irrigation", severity=sev, title="Water deficit expected",
-                             detail=basis + f"Add about {deficit:.0f} mm via supplementary irrigation (e.g. {better.lower()} irrigation for best water-use efficiency)." + tip,
-                             expected_gain_t_ha=gain("irrigation")))
-    elif water > excess_limit:
-        recs.append(dict(category="irrigation", severity="warning", title="Risk of waterlogging",
-                         detail=f"Expected water (~{water:.0f} mm) is far above what {crop} usually needs (~{w_opt:.0f} mm). Ensure drainage channels, avoid irrigating, and watch for root diseases.",
-                         expected_gain_t_ha=None))
+            recs.append(dict(category="irrigation", severity="success", title="Rainfall is within the typical range",
+                             detail=f"{rain:.0f} mm is within the typical {span} seen for {crop} in {season} across the training districts.", expected_gain_t_ha=None))
     else:
-        recs.append(dict(category="irrigation", severity="success", title="Water supply is adequate",
-                         detail=f"Effective water (~{water:.0f} mm) is within the comfortable range for {crop}. Schedule irrigation only at critical growth stages.", expected_gain_t_ha=None))
+        water, w_opt, w_tol = water_status(inputs, crop)
+        deficit = w_opt - water
+        rain = inputs["rainfall_mm"]
+        excess_limit = RICE_WATERLOG_MM if crop == "Rice" else w_opt + 2.2 * w_tol  # paddy is a flooded crop and tolerates heavy rain
+        irr_gain = levers.get("irrigation") if "irrigation" in levers else None
+        if deficit > 0.6 * w_tol:
+            better = "Drip" if inputs.get("irrigation") in (None, "Rainfed", "Canal") else "Sprinkler"
+            basis = (f"Using the rainfall you entered ({rain:.0f} mm for the season) plus irrigation, effective water is ~{water:.0f} mm against ~{w_opt:.0f} mm "
+                     f"typical for {crop}. ")
+            tip = " If your area is already getting good rain, enter the expected TOTAL rainfall for the whole season, not just recent rain."
+            if not has_irrigation:
+                recs.append(dict(category="irrigation", severity="info", title="Season rainfall is below the usual need",
+                                 detail=basis + "This model does not see irrigation, and district yields also reflect canal and borewell water. If your field is irrigated this matters less; if it is rainfed, plan for supplementary water." + tip,
+                                 expected_gain_t_ha=None))
+            elif irr_gain is not None and irr_gain < SMALL_GAIN_T_HA:
+                recs.append(dict(category="irrigation", severity="info", title="Water is below the usual optimum, but the effect looks small",
+                                 detail=basis + f"The model expects only about +{max(irr_gain, 0):.2f} t/ha from adding water here, so treat irrigation as optional." + tip,
+                                 expected_gain_t_ha=gain("irrigation")))
+            else:
+                sev = "critical" if deficit > 1.5 * w_tol else "warning"
+                recs.append(dict(category="irrigation", severity=sev, title="Water deficit expected",
+                                 detail=basis + f"Add about {deficit:.0f} mm via supplementary irrigation (e.g. {better.lower()} irrigation for best water-use efficiency)." + tip,
+                                 expected_gain_t_ha=gain("irrigation")))
+        elif water > excess_limit:
+            recs.append(dict(category="irrigation", severity="warning", title="Risk of waterlogging",
+                             detail=f"Expected water (~{water:.0f} mm) is far above what {crop} usually needs (~{w_opt:.0f} mm). Ensure drainage channels, avoid irrigating, and watch for root diseases.",
+                             expected_gain_t_ha=None))
+        else:
+            recs.append(dict(category="irrigation", severity="success", title="Water supply is adequate",
+                             detail=f"Effective water (~{water:.0f} mm) is within the comfortable range for {crop}. Schedule irrigation only at critical growth stages.", expected_gain_t_ha=None))
 
-    # ---- soil pH
-    ph, ph_opt = inputs["ph"], prof["ph"]
-    if ph < ph_opt - 0.7:
+    # ---- soil pH (a district-level estimate when it was not entered by the user)
+    ph = inputs.get("ph", inputs.get("soil_ph"))
+    ph_opt = prof["ph"]
+    est = " This pH is a district-level estimate; test your own field." if ("ph" in estimated or "soil_ph" in estimated) else ""
+    if ph is None:
+        pass
+    elif ph < ph_opt - 0.7:
         lime = (ph_opt - ph) * LIME_T_PER_PH_UNIT
         recs.append(dict(category="soil_ph", severity="warning" if ph > 5.2 else "critical", title="Soil is too acidic",
-                         detail=f"pH {ph:.1f} is below the {ph_opt:.1f} target. Apply roughly {lime:.1f} t/ha agricultural lime (confirm with a lime-requirement test) and add organic matter.",
+                         detail=f"pH {ph:.1f} is below the {ph_opt:.1f} target. Apply roughly {lime:.1f} t/ha agricultural lime (confirm with a lime-requirement test) and add organic matter." + est,
                          expected_gain_t_ha=gain("ph")))
     elif ph > ph_opt + 0.8:
         recs.append(dict(category="soil_ph", severity="warning" if ph < 8.5 else "critical", title="Soil is too alkaline",
-                         detail=f"pH {ph:.1f} is above the {ph_opt:.1f} target. Use gypsum or elemental sulphur (200-400 kg/ha), apply compost/green manure, and prefer acidifying fertilisers such as ammonium sulphate.",
+                         detail=f"pH {ph:.1f} is above the {ph_opt:.1f} target. Use gypsum or elemental sulphur (200-400 kg/ha), apply compost/green manure, and prefer acidifying fertilisers such as ammonium sulphate." + est,
                          expected_gain_t_ha=gain("ph")))
     else:
-        recs.append(dict(category="soil_ph", severity="success", title="Soil pH is in range", detail=f"pH {ph:.1f} suits {crop} (target ~{ph_opt:.1f}). No correction needed.", expected_gain_t_ha=None))
+        recs.append(dict(category="soil_ph", severity="success", title="Soil pH is in range", detail=f"pH {ph:.1f} suits {crop} (target ~{ph_opt:.1f}). No correction needed." + est, expected_gain_t_ha=None))
 
     # ---- N / P / K
-    supply, (n_opt, p_opt, k_opt) = _nutrient_supply(inputs), prof["npk"]
+    have_npk = all(k in inputs for k in ("nitrogen", "phosphorus", "potassium", "fertilizer_kg_ha"))
+    supply, (n_opt, p_opt, k_opt) = (_nutrient_supply(inputs) if have_npk else {}), prof["npk"]
     spec = {"nitrogen": ("N", n_opt, UREA_N, "urea"), "phosphorus": ("P", p_opt, SSP_P2O5, "single super phosphate"), "potassium": ("K", k_opt, MOP_K2O, "muriate of potash")}
     excess_at = {"nitrogen": 1.9, "phosphorus": 3.5, "potassium": 2.4}  # P and K accumulate in soil, so tolerate more before warning
     bench = (benchmark or {}).get("top_quartile_median", {})
-    for key, (sym, opt, conv, product) in spec.items():
+    for key, (sym, opt, conv, product) in (spec.items() if have_npk else []):
         have = supply[key]
         if have < 0.8 * opt:
             need = opt - have
@@ -98,7 +126,9 @@ def generate(inputs: dict, crop: str, pred: dict, levers: dict | None = None, al
 
     # ---- climate / suitability
     t_opt, t_tol = prof["temp"]
-    if inputs["temperature_c"] > t_opt + 7:
+    if real_ref:
+        pass  # real-data model: crop temperature optima in CROP_PROFILE are agronomic guidance, not fitted to data, so no stress verdicts
+    elif inputs["temperature_c"] > t_opt + 7:
         recs.append(dict(category="climate", severity="warning", title="Heat stress risk",
                          detail=f"Mean temperature {inputs['temperature_c']:.1f} C is well above the {t_opt} C optimum. Consider earlier sowing, mulching, or a heat-tolerant variety; irrigate during flowering.", expected_gain_t_ha=None))
     elif inputs["temperature_c"] < t_opt - 7:
