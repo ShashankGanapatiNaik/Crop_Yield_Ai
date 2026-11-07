@@ -4,7 +4,7 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 
-from backend.app.api.crop_health import get_satellite_provider
+from backend.app.api.api_crop_health import get_satellite_provider
 from backend.app.core.config import get_settings
 from backend.app.db import SessionLocal
 from backend.app.main import app

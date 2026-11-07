@@ -12,7 +12,7 @@ from ..core.security import get_current_user
 from ..db import get_db
 from ..models.orm import FarmField, User
 from ..schemas import FieldCreate, FieldOut
-from ..services import crop_health as svc
+from ..services import services_crop_health as svc
 from ..services import satellite as sat
 from ..services.earth_engine import COLLECTION, get_provider
 from ..services.model_service import InputError

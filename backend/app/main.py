@@ -9,7 +9,8 @@ from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from sqlalchemy import select
 
-from .api import admin, auth, crop_health, predict
+from .api import admin, auth, predict
+from .api import api_crop_health as crop_health
 from .core.config import get_settings
 from .core.limiter import limiter
 from .core.logging import setup_logging
