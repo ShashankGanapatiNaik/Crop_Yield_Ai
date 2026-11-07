@@ -14,6 +14,7 @@ const WhatIf = lazy(() => import('./pages/WhatIf'))
 const Compare = lazy(() => import('./pages/Compare'))
 const History = lazy(() => import('./pages/History'))
 const Insights = lazy(() => import('./pages/Insights'))
+const CropHealth = lazy(() => import('./pages/CropHealth'))
 const Admin = lazy(() => import('./pages/Admin'))
 
 function Guard({ children, admin }: { children: ReactNode; admin?: boolean }) {
@@ -41,6 +42,7 @@ export default function App() {
           <Route path="whatif" element={<Guard><WhatIf /></Guard>} />
           <Route path="compare" element={<Guard><Compare /></Guard>} />
           <Route path="history" element={<Guard><History /></Guard>} />
+          <Route path="crop-health" element={<Guard><CropHealth /></Guard>} />
           <Route path="admin" element={<Guard admin><Admin /></Guard>} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>

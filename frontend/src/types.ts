@@ -60,3 +60,31 @@ export interface AdminStats {
 export interface AdminUser { id: number; name: string; email: string; role: string; created_at: string; predictions: number }
 
 export interface Place { lat: number; lon: number; label: string; display_name: string; locality: string; district: string; state: string; country: string; region: string | null }
+
+// ---- satellite crop health
+export interface GeoPolygon { type: 'Polygon'; coordinates: number[][][] }
+export type NdviCategory = 'low' | 'moderate' | 'high'
+export interface FarmField {
+  id: number; name: string; geometry: GeoPolygon; centroid_lat: number; centroid_lon: number; area_ha: number
+  source: 'polygon' | 'point_radius'; radius_m: number | null; created_at: string; last_synced_at: string | null; last_sync_status: string | null
+}
+export interface NdviObs { date: string; ndvi_mean: number; valid_fraction: number; scenes: number; category: NdviCategory; color: string; label: string }
+export interface LegendItem { category: NdviCategory; label: string; color: string; range: string }
+export interface CropHealthCommon {
+  status: 'ok' | 'no_data'; reason: string | null; field: { id: number; name: string; area_ha: number }
+  window: { start: string; end: string; days: number }; thresholds: { low: number; high: number; note: string }; legend: LegendItem[]
+  from_cache: boolean; stale: boolean; warning: string | null; last_synced_at: string | null
+  source: { satellite: string; dataset: string; index: string; resolution_m: number; cloud_mask: string; revisit: string; attribution: string }
+}
+export interface CropHealthLatest extends CropHealthCommon {
+  observation: NdviObs | null; previous: NdviObs | null
+  interpretation: { category: NdviCategory; summary: string; change: number | null; caveats: string[]; disclaimer: string } | null
+  layer: { tile_url: string; style: string; date: string; attribution: string; expires_note: string; bounds: [[number, number], [number, number]] } | null
+  layer_error: string | null
+}
+export interface CropHealthHistory extends CropHealthCommon { count: number; observations: NdviObs[] }
+export interface CropHealthStatus {
+  configured: boolean; provider: string; dataset: string; thresholds: { low: number; high: number }; legend: LegendItem[]
+  limits: { min_field_ha: number; max_field_ha: number; max_fields_per_user: number; default_days: number; max_days: number }
+}
+export interface FieldCreateBody { name: string; geometry?: GeoPolygon; latitude?: number; longitude?: number; radius_m?: number }

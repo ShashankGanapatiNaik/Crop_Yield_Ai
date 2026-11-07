@@ -85,6 +85,19 @@ erDiagram
   }
 ```
 
+## Satellite crop health (Sentinel-2 NDVI)
+
+Farmers mark a field (point + radius, drawn boundary, or typed coordinates) and get a red/yellow/green **NDVI map** from Sentinel-2 imagery via Google Earth Engine,
+the latest observation with a cautious explanation, and the NDVI history. NDVI is a greenness indicator, not a diagnosis. If no cloud-free image exists the page says
+so and estimates nothing. Setup (Earth Engine project, credentials), API, limitations and troubleshooting: **[docs/crop-health.md](docs/crop-health.md)**.
+
+```bash
+# .env: GEE_PROJECT=your-project-id   (+ `earthengine authenticate` locally, or a service-account key on a server; never commit keys)
+pip install -r requirements.txt
+python -m backend.app.gee_smoke --lat 14.28 --lon 74.44 --days 60   # one-time check of your Earth Engine setup
+uvicorn backend.app.main:app --reload                              # then open the "Crop health" page
+```
+
 ## Real district-level data (optional second pipeline)
 
 The default model is the **synthetic prototype**. A separate pipeline trains on **real Indian district yield statistics (APY)** merged with
@@ -142,7 +155,7 @@ docker compose up --build
 ## Tests and lint
 
 ```bash
-python -m pytest -q          # 48 tests; builds a tiny model automatically, no training needed
+python -m pytest -q          # 237 tests; builds a tiny model automatically, no training needed
 ruff check .
 cd frontend && npm run lint && npm run typecheck && npm run build
 ```
@@ -160,6 +173,9 @@ Interactive docs at `/docs`. All JSON. Auth = `Authorization: Bearer <token>`.
 | `POST /compare-crops` | user | Same conditions for several crops: yield, interval, revenue, cost, profit, ROI, season suitability |
 | `POST /what-if` | user | Re-predict with `changes`; optional `sweep` returns a yield response curve for one parameter |
 | `GET /weather?lat=&lon=` | – | Live weather (Open-Meteo) to auto-fill temperature, humidity, rainfall |
+| `POST/GET/DELETE /crop-health/fields` | user | Save, list, delete a field (GeoJSON polygon or point + radius) |
+| `GET /crop-health/fields/{id}/latest`, `/history` | owner | Latest Sentinel-2 NDVI result with map layer; NDVI history |
+| `GET /crop-health/status` | – | Is satellite monitoring configured? thresholds, limits |
 | `GET /geocode/reverse?lat=&lon=` | – | Exact place name for a map point (OpenStreetMap Nominatim, cached) |
 | `GET /geocode/search?q=` | – | Search a place by name (India) |
 | `GET /history`, `GET /history/{id}` | user | Your predictions |

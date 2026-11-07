@@ -1,4 +1,4 @@
-import type { AdminStats, AdminUser, CompareRow, CropsMeta, HistoryItem, Inputs, ModelInfo, Place, Prediction, TokenOut, User, Weather, WhatIf } from './types'
+import type { AdminStats, AdminUser, CompareRow, CropHealthHistory, CropHealthLatest, CropHealthStatus, CropsMeta, FarmField, FieldCreateBody, HistoryItem, Inputs, ModelInfo, Place, Prediction, TokenOut, User, Weather, WhatIf } from './types'
 
 export const API_BASE: string = import.meta.env.VITE_API_URL ?? '/api'
 const KEY = 'cropai_token'
@@ -63,6 +63,12 @@ export const api = {
   weather: (lat: number, lon: number, season?: string) => req<Weather>(`/weather?lat=${lat}&lon=${lon}${season ? `&season=${encodeURIComponent(season)}` : ''}`),
   geoReverse: (lat: number, lon: number) => req<Place>(`/geocode/reverse?lat=${lat}&lon=${lon}`),
   geoSearch: (q: string) => req<{ results: Place[] }>(`/geocode/search?q=${encodeURIComponent(q)}`),
+  cropHealthStatus: () => req<CropHealthStatus>('/crop-health/status'),
+  fields: () => req<FarmField[]>('/crop-health/fields'),
+  createField: (body: FieldCreateBody) => post<FarmField>('/crop-health/fields', body),
+  deleteField: (id: number) => req<void>(`/crop-health/fields/${id}`, { method: 'DELETE' }),
+  cropHealthLatest: (id: number, days: number, refresh = false) => req<CropHealthLatest>(`/crop-health/fields/${id}/latest?days=${days}${refresh ? '&refresh=true' : ''}`),
+  cropHealthHistory: (id: number, days: number) => req<CropHealthHistory>(`/crop-health/fields/${id}/history?days=${days}`),
   history: () => req<{ total: number; items: HistoryItem[] }>('/history?limit=100'),
   historyItem: (id: number) => req<Prediction>(`/history/${id}`),
   deleteHistory: (id: number) => req<void>(`/history/${id}`, { method: 'DELETE' }),

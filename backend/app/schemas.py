@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, model_validator
 
 
 class RegisterIn(BaseModel):
@@ -116,3 +116,37 @@ class PredictionOut(BaseModel):
     data_mode: str | None = None          # "synthetic" | "real"
     estimated_inputs: list[str] = Field(default_factory=list)   # inputs filled from district-level estimates
     data_notes: list[str] = Field(default_factory=list)
+
+
+# ---------------------------------------------------------------- satellite crop health
+class FieldCreate(BaseModel):
+    """Define a field either by a GeoJSON polygon (longitude, latitude order) or by a centre point and a radius."""
+    name: str = Field(min_length=1, max_length=120)
+    geometry: dict | None = Field(default=None, description='GeoJSON Polygon: {"type": "Polygon", "coordinates": [[[lon, lat], ...]]}')
+    latitude: float | None = None
+    longitude: float | None = None
+    radius_m: float = Field(default=100, description="Used with latitude/longitude: field approximated as a circle of this radius (10-3000 m)")
+
+    @model_validator(mode="after")
+    def _one_way_to_define_the_field(self):
+        has_point = self.latitude is not None or self.longitude is not None
+        if self.geometry is not None and has_point:
+            raise ValueError("provide either `geometry` or `latitude` + `longitude`, not both")
+        if self.geometry is None and (self.latitude is None or self.longitude is None):
+            raise ValueError("provide `geometry` (polygon) or both `latitude` and `longitude`")
+        return self
+
+
+class FieldOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    name: str
+    geometry: dict
+    centroid_lat: float
+    centroid_lon: float
+    area_ha: float
+    source: str
+    radius_m: float | None = None
+    created_at: datetime
+    last_synced_at: datetime | None = None
+    last_sync_status: str | None = None

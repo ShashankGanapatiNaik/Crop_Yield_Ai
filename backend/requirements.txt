@@ -12,12 +12,14 @@ email-validator>=2.1
 httpx>=0.27
 slowapi>=0.1.9
 reportlab>=4.2
-joblib==1.4.2
-numpy==1.26.4
-pandas==2.2.3
-scipy==1.13.1
-scikit-learn==1.5.2
-xgboost==2.1.4
-lightgbm==4.5.0
-catboost==1.2.7
-shap==0.46.0
+joblib==1.5.3
+numpy==2.4.4
+pandas==3.0.2
+scipy==1.17.1
+scikit-learn==1.8.0
+xgboost==3.4.1
+lightgbm==4.7.0
+catboost==1.2.10
+shap==0.54.1
+# satellite crop health (Google Earth Engine). Imported lazily: the rest of the app runs without credentials.
+earthengine-api>=1.5

@@ -9,7 +9,7 @@ from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from sqlalchemy import select
 
-from .api import admin, auth, predict
+from .api import admin, auth, crop_health, predict
 from .core.config import get_settings
 from .core.limiter import limiter
 from .core.logging import setup_logging
@@ -80,7 +80,7 @@ def create_app() -> FastAPI:
         except FileNotFoundError:
             return JSONResponse({"status": "degraded", "detail": "model not trained"}, status_code=503)
 
-    for r in (auth.router, predict.router, admin.router):
+    for r in (auth.router, predict.router, admin.router, crop_health.router):
         app.include_router(r)
     return app
 

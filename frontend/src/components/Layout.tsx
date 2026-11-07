@@ -36,7 +36,7 @@ export default function Layout() {
   }, [nav, t, toast])
 
   const links = user
-    ? [['/dashboard', 'dashboard'], ['/predict', 'predict'], ['/whatif', 'whatif'], ['/compare', 'compare'], ['/history', 'history'], ['/insights', 'insights'], ...(user.role === 'admin' ? [['/admin', 'admin']] : [])]
+    ? [['/dashboard', 'dashboard'], ['/predict', 'predict'], ['/whatif', 'whatif'], ['/compare', 'compare'], ['/crop-health', 'health'], ['/history', 'history'], ['/insights', 'insights'], ...(user.role === 'admin' ? [['/admin', 'admin']] : [])]
     : [['/', 'home'], ['/insights', 'insights']]
   const cls = ({ isActive }: { isActive: boolean }) => `rounded-lg px-3 py-2 text-sm font-semibold ${isActive ? 'bg-brand-soft text-brand-strong' : 'text-muted hover:bg-sunken hover:text-ink'}`
 
